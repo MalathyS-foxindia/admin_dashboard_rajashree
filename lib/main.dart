@@ -17,8 +17,63 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Admin Dashboard',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue), // Changed to blue
-        useMaterial3: true,
+        // --- 1. Define your main color scheme ---
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue, // Your brand's dominant color
+        brightness: Brightness.light, // Or Brightness.dark for dark mode
+          primary: Colors.blueGrey,
+          secondary: Colors.lightBlueAccent,
+          error: Colors.red,
+          background: Colors.grey[50], // Light background
+          surface: Colors.white,       // Card/dialog surface color
+        ),
+        useMaterial3: true, 
+         // --- 2. Define your typography (TextTheme) ---
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontSize: 57.0, fontWeight: FontWeight.bold),
+          headlineMedium: TextStyle(fontSize: 28.0, fontWeight: FontWeight.w600, color: Colors.blue),
+          titleLarge: TextStyle(fontSize: 22.0, fontWeight: FontWeight.w500),
+          bodyMedium: TextStyle(fontSize: 16.0, color: Colors.black87),
+          labelSmall: TextStyle(fontSize: 11.0, color: Colors.grey),
+        ),
+        // Optional: Integrate Google Fonts if desired
+        // textTheme: GoogleFonts.poppinsTextTheme(
+        //   Theme.of(context).textTheme, // Inherit default styles
+        // ),
+
+
+        // --- 3. Customize common widget themes ---
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.blue, // AppBar background color
+          foregroundColor: Colors.white, // Text/icon color on AppBar
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+          elevation: 2.0, // Subtle shadow under AppBar
+        ),
+
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blueAccent[700], // Button background
+            foregroundColor: Colors.white, // Button text color
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0), // Slightly rounded buttons
+            ),
+          ),
+        ),
+
+        cardTheme: CardThemeData(
+          elevation: 2.0, // Subtle shadow for cards
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10.0), // Rounded card corners
+          ),
+          margin: const EdgeInsets.all(8.0), // Default margin for cards
+        ),
+
+        // ... and so on for other widgets like inputDecorationTheme, dialogTheme, etc.
       ),
       home: const MyHomePage(title: 'Order Dashboard'),
     );
