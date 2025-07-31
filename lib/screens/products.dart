@@ -20,6 +20,7 @@ class _ProductsState extends State<products> {
   bool hasVariant = false;
 
   List<Map<String, TextEditingController>> variantControllers = [];
+
   final TextEditingController _editNameController = TextEditingController();
   final TextEditingController _editDescriptionController = TextEditingController();
   final TextEditingController _editCategoryController = TextEditingController();
@@ -28,8 +29,9 @@ class _ProductsState extends State<products> {
   final TextEditingController _editWeightController = TextEditingController();
   final TextEditingController _editSkuController = TextEditingController();
   bool _editHasVariant = false;
-  List<Map<String, TextEditingController>> _editVariantControllers = [];
+  final List<Map<String, dynamic>> _editVariantControllers = [];
 
+  
   // Helper to clear edit controllers when done
   void _clearEditControllers() {
     _editNameController.clear();
@@ -40,12 +42,14 @@ class _ProductsState extends State<products> {
     _editWeightController.clear();
     _editSkuController.clear();
     _editHasVariant = false;
-    for (var map in _editVariantControllers) {
-      map.values.forEach((c) => c.dispose()); // Dispose existing
+    for (var item in _editVariantControllers) {
+      final Map<String, TextEditingController> ctrls = item['controllers'];
+      for (var c in ctrls.values) {
+        c.dispose();
+      }
     }
     _editVariantControllers.clear();
   }
-
 
   bool _isLoading = true;
   final String _supabaseUrl = 'https://gvsorguincvinuiqtooo.supabase.co';
@@ -101,7 +105,9 @@ class _ProductsState extends State<products> {
     weightController.dispose();
     skuController.dispose();
     for (var map in variantControllers) {
-      map.values.forEach((c) => c.dispose());
+      for (var c in map.values) {
+        c.dispose();
+      }
     }
     // Also dispose edit controllers
     _editNameController.dispose();
@@ -111,9 +117,10 @@ class _ProductsState extends State<products> {
     _editRegularPriceController.dispose();
     _editWeightController.dispose();
     _editSkuController.dispose();
-    for (var map in _editVariantControllers) {
-      map.values.forEach((c) => c.dispose());
-    }
+    for (var item in _editVariantControllers) {
+  final Map<String, TextEditingController> controllers = item['controllers'];
+  controllers.values.forEach((c) => c.dispose());
+}
 
     super.dispose();
   }
@@ -132,12 +139,13 @@ class _ProductsState extends State<products> {
     });
   }
 
-  void removeVariantField(int index) {
+   void _removeEditVariantField(int index) {
+    final Map<String, TextEditingController> ctrls = _editVariantControllers[index]['controllers'];
+    for (var c in ctrls.values) {
+      c.dispose();
+    }
     setState(() {
-      for (var c in variantControllers[index].values) {
-        c.dispose();
-      }
-      variantControllers.removeAt(index);
+      _editVariantControllers.removeAt(index);
     });
   }
 // Helper to add variant fields for editing
@@ -154,12 +162,7 @@ class _ProductsState extends State<products> {
     });
   }
 // Helper to remove variant fields for editing
-  void _removeEditVariantField(int index) {
-    setState(() {
-      _editVariantControllers[index].values.forEach((c) => c.dispose());
-      _editVariantControllers.removeAt(index);
-    });
-  }
+  
   void addProduct() async {
     final product = {
       'name': nameController.text,
@@ -225,69 +228,63 @@ class _ProductsState extends State<products> {
   }
 // --- NEW: Update Product Method ---
   Future<void> updateProduct(Map<String, dynamic> originalProduct) async {
-    // Get the product ID. Assuming 'id' is the primary key from Supabase.
-    // If your product ID is 'product_id', use originalProduct['product_id']
-    final productId = originalProduct['id'];
+    final productId = originalProduct['product_id'];
     if (productId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error: Product ID not found for update.')),
       );
       return;
     }
-
+  print("Original Product : "+jsonEncode(originalProduct)); // Debugging line to check the original product data
     final updatedProductPayload = {
+      'product_id': productId,
       'name': _editNameController.text,
       'description': _editDescriptionController.text,
       'sku': _editSkuController.text,
       'category': _editCategoryController.text,
       'has_variant': _editHasVariant,
-      // For simplicity, we'll send main product details here.
-      // A dedicated Edge Function would handle complex variant updates.
       if (!_editHasVariant) ...{
+        'variant_id': originalProduct['variants']?[0]['variant_id'],
         'saleprice': double.tryParse(_editSalePriceController.text) ?? 0,
         'regularprice': double.tryParse(_editRegularPriceController.text) ?? 0,
         'weight': double.tryParse(_editWeightController.text) ?? 0,
-      }
+      },
+      if (_editHasVariant)
+        'variants': _editVariantControllers.map((vc) {
+          final Map<String, TextEditingController> ctrls = vc['controllers'];
+          return {
+            'variant_id': vc['variant_id'],
+            'variant_name': ctrls['variant_name']!.text,
+            'sku': ctrls['sku']!.text,
+            'saleprice': double.tryParse(ctrls['saleprice']!.text) ?? 0,
+            'regularprice': double.tryParse(ctrls['regularprice']!.text) ?? 0,
+            'weight': double.tryParse(ctrls['weight']!.text) ?? 0,
+            'color': ctrls['color']!.text,
+          };
+        }).toList(),
     };
+    print("Updated Product : "+jsonEncode(updatedProductPayload)); // Debugging line to check the updated product data
+    final url = '$_supabaseUrl/functions/v1/update-product-with-variants';
 
-    // If using an Edge Function for update:
-    final url = '$_supabaseUrl/functions/v1/update-product-with-variants'; // CREATE THIS FUNCTION!
-    // If updating directly to the 'master_product' table via REST API:
-    // final url = '$_supabaseUrl/rest/v1/master_product?id=eq.$productId'; // Use direct table API
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Authorization': 'Bearer $_supabaseAnonKey',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(updatedProductPayload),
+    );
 
-    print('Updating product with ID: $productId');
-    print('Payload: ${jsonEncode(updatedProductPayload)}');
-
-    try {
-      final response = await http.patch( // Use PATCH for partial updates to existing resources
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $_supabaseAnonKey',
-          'Content-Type': 'application/json',
-          // 'apikey': _supabaseAnonKey, // Often needed for direct REST API calls
-        },
-        body: jsonEncode(updatedProductPayload),
-      );
-
-      print('Update Response Status: ${response.statusCode}');
-      print('Update Response Body: ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 204) { // 200 OK or 204 No Content for success
-        Navigator.pop(context); // Close the dialog
-        fetchProducts(); // Refresh the list to show updated data
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product updated successfully!')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update product. Status: ${response.statusCode}, Body: ${response.body}')),
-        );
-      }
-    } catch (e) {
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      Navigator.pop(context);
+      fetchProducts();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating product: $e')),
+        const SnackBar(content: Text('Product updated successfully!')),
       );
-      print('Error updating product: $e');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Update failed. ${response.body}')),
+      );
     }
   }
 // --- NEW: Show Edit Product Popup Method ---
@@ -300,22 +297,29 @@ class _ProductsState extends State<products> {
     _editHasVariant = productToEdit['has_variant'] ?? false;
 
     if (!_editHasVariant) {
-      _editSalePriceController.text = (productToEdit['saleprice'] ?? 0.0).toString();
-      _editRegularPriceController.text = (productToEdit['regularprice'] ?? 0.0).toString();
-      _editWeightController.text = (productToEdit['weight'] ?? 0.0).toString();
+      for (var variant in productToEdit['variants']) {
+      _editSalePriceController.text = (variant['saleprice'] ?? 0.0).toString();
+      _editRegularPriceController.text = (variant['regularprice'] ?? 0.0).toString();
+      _editWeightController.text = (variant['weight'] ?? 0.0).toString();
+         }
     } else {
       // Clear and re-populate variant controllers for editing
       _editVariantControllers.clear();
       if (productToEdit['variants'] != null && productToEdit['variants'] is List) {
         for (var variant in productToEdit['variants']) {
+          
           _editVariantControllers.add({
-            'variant_name': TextEditingController(text: variant['variant_name'] ?? ''),
-            'sku': TextEditingController(text: variant['sku'] ?? ''),
-            'saleprice': TextEditingController(text: (variant['saleprice'] ?? 0.0).toString()),
-            'regularprice': TextEditingController(text: (variant['regularprice'] ?? 0.0).toString()),
-            'weight': TextEditingController(text: (variant['weight'] ?? 0.0).toString()),
-            'color': TextEditingController(text: variant['color'] ?? ''),
-          });
+  'variant_id': variant['variant_id'],
+  'controllers': {
+    'variant_name': TextEditingController(text: variant['variant_name'] ?? ''),
+    'sku': TextEditingController(text: variant['sku'] ?? ''),
+    'saleprice': TextEditingController(text: (variant['saleprice'] ?? 0.0).toString()),
+    'regularprice': TextEditingController(text: (variant['regularprice'] ?? 0.0).toString()),
+    'weight': TextEditingController(text: (variant['weight'] ?? 0.0).toString()),
+    'color': TextEditingController(text: variant['color'] ?? ''),
+  }
+});
+
         }
       }
     }
@@ -354,7 +358,9 @@ class _ProductsState extends State<products> {
                           if (!_editHasVariant) {
                             // Clear and dispose variant controllers if unchecked
                             for (var map in _editVariantControllers) {
-                              map.values.forEach((c) => c.dispose());
+                              for (var c in map.values) {
+                                c.dispose();
+                              }
                             }
                             _editVariantControllers.clear();
                           }
@@ -387,6 +393,7 @@ class _ProductsState extends State<products> {
                       ..._editVariantControllers.asMap().entries.map((entry) {
                         int idx = entry.key;
                         var vc = entry.value;
+                        final ctrls = vc['controllers'] as Map<String, TextEditingController>;
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           child: Padding(
@@ -394,30 +401,30 @@ class _ProductsState extends State<products> {
                             child: Column(
                               children: [
                                 TextField(
-                                  controller: vc['variant_name'],
+                                  controller: ctrls['variant_name'],
                                   decoration: const InputDecoration(labelText: 'Variant Name'),
                                 ),
                                 TextField(
-                                  controller: vc['sku'],
+                                  controller: ctrls['sku'],
                                   decoration: const InputDecoration(labelText: 'Variant SKU'),
                                 ),
                                 TextField(
-                                  controller: vc['saleprice'],
+                                  controller: ctrls['saleprice'],
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(labelText: 'Sale Price'),
                                 ),
                                 TextField(
-                                  controller: vc['regularprice'],
+                                  controller: ctrls['regularprice'],
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(labelText: 'Regular Price'),
                                 ),
                                 TextField(
-                                  controller: vc['weight'],
+                                  controller: ctrls['weight'],
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(labelText: 'Weight'),
                                 ),
                                 TextField(
-                                  controller: vc['color'],
+                                  controller: ctrls['color'],
                                   decoration: const InputDecoration(labelText: 'Color'),
                                 ),
                                 Align(
@@ -477,6 +484,12 @@ class _ProductsState extends State<products> {
     setState(() {
       searchQuery = query.toLowerCase();
       filteredProducts = products.where((product) => product['name'].toLowerCase().contains(searchQuery)).toList();
+    });
+  }
+  void _removeVariantField(int index) {
+    setState(() {
+      variantControllers[index].values.forEach((c) => c.dispose());
+      variantControllers.removeAt(index);
     });
   }
 
@@ -543,7 +556,7 @@ class _ProductsState extends State<products> {
                                   child: IconButton(
                                     icon: const Icon(Icons.delete, color: Colors.red),
                                     onPressed: () {
-                                      removeVariantField(idx);
+                                      _removeVariantField(idx);
                                       setStateDialog(() {});
                                     },
                                   ),
@@ -609,8 +622,25 @@ class _ProductsState extends State<products> {
                       headerBuilder: (context, isExpanded) {
                         return ListTile(
                           title: Text(product['name'] ?? ''),
-                          subtitle: Text('SKU: ${product['sku']} | Category: ${product['category']}'),
-                          trailing: Text(product['has_variant'] ? 'Has Variant' : 'No Variant'),
+                          subtitle: Text('SKU: ${product['sku']} | Category: ${product['category']} | Has Variant: ${product['has_variant'] ? 'Yes' : 'No'}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () => showEditProductPopup(product),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () {
+                                  setState(() {
+                                    products.remove(product);
+                                    filteredProducts = products;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
                         );
                       },
                       body: Column(
@@ -638,18 +668,7 @@ class _ProductsState extends State<products> {
                                     DataCell(Text(variant['color'] ?? '')),
                                     DataCell(Row(
                             mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              IconButton(icon: const Icon(Icons.edit), onPressed: () => showEditProductPopup(product)),
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () {
-                                  setState(() {
-                                    products.remove(product);
-                                    filteredProducts = products;
-                                  });
-                                },
-                              ),
-                            ],
+                            
                           )),
                                   ]);
                                 }).toList(),
@@ -675,18 +694,7 @@ class _ProductsState extends State<products> {
                                     DataCell(Text('${variant['weight']}')),                                
                                     DataCell(Row(
                             mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              IconButton(icon: const Icon(Icons.edit), onPressed: () => showEditProductPopup(product)),
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () {
-                                  setState(() {
-                                    products.remove(product);
-                                    filteredProducts = products;
-                                  });
-                                },
-                              ),
-                            ],
+                            
                           )),
                                   ]);
                                 }).toList(),
