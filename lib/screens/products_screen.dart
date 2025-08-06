@@ -94,6 +94,66 @@ class _ProductsState extends State<products> {
       setState(() => _isLoading = false);
     }
   }
+Future<void> deleteProduct(String productId, Map<String, dynamic> product) async {
+  final url = '$_supabaseUrl/rest/v1/master_product?product_id=eq.$productId';
+
+  final response = await http.delete(
+    Uri.parse(url),
+    headers: {
+      'apikey': _supabaseAnonKey,
+      'Authorization': 'Bearer $_supabaseAnonKey',
+    },
+  );
+
+  if (response.statusCode == 204) {
+    setState(() {
+      products.remove(product);
+      filteredProducts = products;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Product deleted successfully.")),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Failed to delete product: ${response.body}")),
+    );
+  }
+}
+Future<void> deleteVariant(String variantId, Map<String, dynamic> parentProduct) async {
+  final url = '$_supabaseUrl/rest/v1/product_variants?id=eq.$variantId';
+
+  final response = await http.delete(
+    Uri.parse(url),
+    headers: {
+      'apikey': _supabaseAnonKey,
+      'Authorization': 'Bearer $_supabaseAnonKey',
+    },
+  );
+
+  if (response.statusCode == 204) {
+    setState(() {
+      // Find index of the product in the products list
+      int productIndex = products.indexWhere((p) => p['product_id'] == parentProduct['product_id']);
+
+      if (productIndex != -1) {
+        // Remove the variant with the given ID
+        List<dynamic> variantList = products[productIndex]['variants'];
+        variantList.removeWhere((variant) => variant['variant_id'] == variantId);
+
+        // Update filtered list too
+        filteredProducts = List.from(products);
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Variant deleted successfully.")),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Failed to delete variant: ${response.body}")),
+    );
+  }
+}
 
  @override
   void dispose() {
@@ -119,7 +179,9 @@ class _ProductsState extends State<products> {
     _editSkuController.dispose();
     for (var item in _editVariantControllers) {
   final Map<String, TextEditingController> controllers = item['controllers'];
-  controllers.values.forEach((c) => c.dispose());
+  for (var c in controllers.values) {
+    c.dispose();
+  }
 }
 
     super.dispose();
@@ -152,12 +214,15 @@ class _ProductsState extends State<products> {
   void _addEditVariantField() {
     setState(() {
       _editVariantControllers.add({
-        'variant_name': TextEditingController(),
-        'sku': TextEditingController(),
-        'saleprice': TextEditingController(),
-        'regularprice': TextEditingController(),
-        'weight': TextEditingController(),
-        'color': TextEditingController(),
+        'variant_id': null, // New variants don't have an ID yet
+        'controllers': {
+          'variant_name': TextEditingController(),
+          'sku': TextEditingController(),
+          'saleprice': TextEditingController(),
+          'regularprice': TextEditingController(),
+          'weight': TextEditingController(),
+          'color': TextEditingController(),
+        }
       });
     });
   }
@@ -235,7 +300,7 @@ class _ProductsState extends State<products> {
       );
       return;
     }
-  print("Original Product : "+jsonEncode(originalProduct)); // Debugging line to check the original product data
+  print("Original Product : ${jsonEncode(originalProduct)}"); // Debugging line to check the original product data
     final updatedProductPayload = {
       'product_id': productId,
       'name': _editNameController.text,
@@ -263,7 +328,7 @@ class _ProductsState extends State<products> {
           };
         }).toList(),
     };
-    print("Updated Product : "+jsonEncode(updatedProductPayload)); // Debugging line to check the updated product data
+    print("Updated Product : ${jsonEncode(updatedProductPayload)}"); // Debugging line to check the updated product data
     final url = '$_supabaseUrl/functions/v1/update-product-with-variants';
 
     final response = await http.post(
@@ -488,7 +553,9 @@ class _ProductsState extends State<products> {
   }
   void _removeVariantField(int index) {
     setState(() {
-      variantControllers[index].values.forEach((c) => c.dispose());
+      for (var c in variantControllers[index].values) {
+        c.dispose();
+      }
       variantControllers.removeAt(index);
     });
   }
@@ -555,7 +622,7 @@ class _ProductsState extends State<products> {
                                   alignment: Alignment.centerRight,
                                   child: IconButton(
                                     icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () {
+                                    onPressed: ()  {
                                       _removeVariantField(idx);
                                       setStateDialog(() {});
                                     },
@@ -632,12 +699,7 @@ class _ProductsState extends State<products> {
                               ),
                               IconButton(
                                 icon: const Icon(Icons.delete),
-                                onPressed: () {
-                                  setState(() {
-                                    products.remove(product);
-                                    filteredProducts = products;
-                                  });
-                                },
+                                onPressed: () => deleteProduct(product['product_id'].toString(), product),
                               ),
                             ],
                           ),
@@ -655,8 +717,8 @@ class _ProductsState extends State<products> {
                                   DataColumn(label: Text('Sale Price')),
                                   DataColumn(label: Text('Regular Price')),
                                   DataColumn(label: Text('Weight')),
-                                  DataColumn(label: Text('Color')),
-                                  DataColumn(label: Text('Actions')),
+                                  DataColumn(label: Text('Color'))
+                                
                                 ],
                                 rows: variants.map<DataRow>((variant) {
                                   return DataRow(cells: [
@@ -666,10 +728,7 @@ class _ProductsState extends State<products> {
                                     DataCell(Text('${variant['regularprice']}')),
                                     DataCell(Text('${variant['weight']}')),
                                     DataCell(Text(variant['color'] ?? '')),
-                                    DataCell(Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            
-                          )),
+                                    
                                   ]);
                                 }).toList(),
                               ),
