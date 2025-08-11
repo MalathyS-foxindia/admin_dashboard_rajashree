@@ -20,7 +20,7 @@ class Variant {
   });
 
   factory Variant.fromJson(Map<String, dynamic> json) => Variant(
-    id: json['variant_id'],
+    id: json['variant_id']?.toString(),
     name: json['variant_name'],
     sku: json['sku'],
     salePrice: (json['saleprice'] ?? 0).toDouble(),
@@ -66,7 +66,7 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
-    id: json['product_id'],
+    id: json['product_id']?.toString(),
     name: json['name'],
     description: json['description'],
     sku: json['sku'],

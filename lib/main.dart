@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'providers/product_provider.dart';
 import 'providers/order_provider.dart';
-import 'screens/products_screen.dart';
+
+import 'providers/product_provider.dart';
 import 'screens/orders_screen.dart';
+import  'screens/products_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +14,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-       // ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
       ],
       child: const AdminApp(),
@@ -76,8 +77,14 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = const [
-   // ProductsScreen(),
+   final List<Widget> _screens = const [
+    Center(
+      child: Text(
+        'Welcome to Admin Dashboard',
+        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+      ),
+    ),
+    ProductsScreen(),
     OrdersScreen(),
   ];
 
@@ -87,7 +94,8 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  @override
+
+ @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 600;
     return Scaffold(
@@ -100,15 +108,21 @@ class _MainScreenState extends State<MainScreen> {
               onDestinationSelected: _onItemTapped,
               labelType: NavigationRailLabelType.all,
               destinations: const [
-                
                 NavigationRailDestination(
-                    icon: Icon(Icons.receipt_long_outlined),
-                    selectedIcon: Icon(Icons.receipt_long),
-                    label: Text('Orders')),
-                    // NavigationRailDestination(
-                //     icon: Icon(Icons.shopping_bag_outlined),
-                //     selectedIcon: Icon(Icons.shopping_bag),
-                //     label: Text('Products'))
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: Text('Home'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.shopping_bag_outlined),
+                  selectedIcon: Icon(Icons.shopping_bag),
+                  label: Text('Products'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.receipt_long_outlined),
+                  selectedIcon: Icon(Icons.receipt_long),
+                  label: Text('Orders'),
+                ),
               ],
             ),
           Expanded(child: _screens[_selectedIndex]),
@@ -122,10 +136,15 @@ class _MainScreenState extends State<MainScreen> {
               selectedItemColor: Colors.deepPurple,
               unselectedItemColor: Colors.grey,
               items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Products'),
-                BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.shopping_bag), label: 'Products'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.receipt_long), label: 'Orders'),
               ],
             ),
     );
   }
 }
+
+
