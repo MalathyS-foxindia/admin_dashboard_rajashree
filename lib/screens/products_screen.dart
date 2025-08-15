@@ -14,11 +14,33 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
+  final ScrollController _scrollController = ScrollController();
+  String _searchQuery = '';
+  String? _selectedCategory;
+
   @override
   void initState() {
     super.initState();
-    // fetch on load
-    Future.microtask(() => Provider.of<ProductProvider>(context, listen: false).fetchProducts());
+
+    // First load
+    Future.microtask(() {
+      Provider.of<ProductProvider>(context, listen: false)
+          .fetchProducts(reset: true);
+    });
+
+    // Infinite scroll listener
+    _scrollController.addListener(() {
+      final provider = Provider.of<ProductProvider>(context, listen: false);
+      if (_scrollController.position.pixels >=
+              _scrollController.position.maxScrollExtent - 200 &&
+          !provider.isLoading &&
+          provider.hasMore) {
+        provider.fetchMoreProducts(
+          search: _searchQuery,
+          category: _selectedCategory,
+        );
+      }
+    });
   }
 
   Future<void> _openAddDialog() async {
@@ -27,8 +49,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
       builder: (_) => const ProductForm(),
     );
     if (ok == true) {
-      // optionally show toast
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product created')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Product created')));
+      Provider.of<ProductProvider>(context, listen: false)
+          .fetchProducts(reset: true);
     }
   }
 
@@ -38,7 +62,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
       builder: (_) => ProductForm(initial: p),
     );
     if (ok == true) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product updated')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Product updated')));
+      Provider.of<ProductProvider>(context, listen: false)
+          .fetchProducts(reset: true);
     }
   }
 
@@ -49,8 +76,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
         title: const Text('Delete product'),
         content: const Text('Are you sure you want to delete this product?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -59,11 +90,63 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final provider = Provider.of<ProductProvider>(context, listen: false);
       final ok = await provider.deleteProduct(productId);
       if (ok) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Deleted')));
+        provider.fetchProducts(reset: true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.error ?? 'Delete failed')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(provider.error ?? 'Delete failed')));
       }
     }
+  }
+
+  Widget _buildFilterBar(ProductProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        children: [
+          // Search box
+          Expanded(
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search products...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (val) {
+                setState(() => _searchQuery = val);
+                provider.fetchProducts(
+                  reset: true,
+                  search: val,
+                  category: _selectedCategory,
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Category filter
+          DropdownButton<String?>(
+            hint: const Text('Category'),
+            value: _selectedCategory,
+            items: [
+              const DropdownMenuItem<String?>(
+                  value: null, child: Text('All')),
+              ...provider.categories
+                  .map((cat) =>
+                      DropdownMenuItem<String?>(value: cat, child: Text(cat))),
+            ],
+            onChanged: (val) {
+              setState(() => _selectedCategory = val);
+              provider.fetchProducts(
+                reset: true,
+                search: _searchQuery,
+                category: val,
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -73,119 +156,66 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Products')),
-      floatingActionButton: FloatingActionButton(onPressed: _openAddDialog, child: const Icon(Icons.add)),
-      body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: () => provider.fetchProducts(),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: products.length,
-                itemBuilder: (ctx, i) {
-                  final p = products[i];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ExpansionTile(
-                      key: ValueKey(p.id),
-                      title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('SKU: ${p.sku} • Category: ${p.category}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(icon: const Icon(Icons.edit), onPressed: () => _openEditDialog(p)),
-                          IconButton(icon: const Icon(Icons.delete), onPressed: () => _confirmDelete(p.id ?? '')),
-                        ],
-                      ),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Description: ${p.description}'),
-                              const SizedBox(height: 8),
-                              if (!p.hasVariant) ...[
-                                Text('Sale price: ${p.salePrice ?? 0}'),
-                                Text('Regular price: ${p.regularPrice ?? 0}'),
-                                Text('Weight: ${p.weight ?? 0}'),
-                              ] else ...[
-                                Text('Variants (${p.variants?.length ?? 0})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 8),
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: DataTable(
-                                    columns: const [
-                                      DataColumn(label: Text('Variant name')),
-                                      DataColumn(label: Text('SKU')),
-                                      DataColumn(label: Text('Sale')),
-                                      DataColumn(label: Text('Regular')),
-                                      DataColumn(label: Text('Weight')),
-                                      DataColumn(label: Text('Color')),
-                                    ],
-                                    rows: p.variants!.map((v) {
-                                      return DataRow(cells: [
-                                        DataCell(Text(v.name)),
-                                        DataCell(Text(v.sku)),
-                                        DataCell(Text(v.salePrice.toString())),
-                                        DataCell(Text(v.regularPrice.toString())),
-                                        DataCell(Text(v.weight.toString())),
-                                        DataCell(Row(
-                                          children: [
-                                            Text(v.color),
-                                           IconButton(
-                                                icon: const Icon(Icons.delete, color: Colors.red),
-                                                onPressed: () async {
-                                                  final confirmed = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (ctx) => AlertDialog(
-                                                      title: const Text('Delete variant'),
-                                                      content: const Text('Are you sure you want to delete this variant?'),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () => Navigator.of(ctx).pop(false),
-                                                          child: const Text('Cancel'),
-                                                        ),
-                                                        ElevatedButton(
-                                                          onPressed: () => Navigator.of(ctx).pop(true),
-                                                          child: const Text('Delete'),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-
-                                                  if (confirmed != true) return;
-
-                                                  final prov = Provider.of<ProductProvider>(context, listen: false);
-                                                  final ok = await prov.deleteVariant(v.id ?? '');
-
-                                                  if (ok) {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      const SnackBar(content: Text('Variant deleted')),
-                                                    );
-                                                    await prov.fetchProducts(); // refresh list
-                                                  } else {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(content: Text(prov.error ?? 'Failed')),
-                                                    );
-                                                  }
-                                                },
-                                              )
-                                          ],
-                                        )),
-                                      ]);
-                                    }).toList(),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
+      floatingActionButton: FloatingActionButton(
+          onPressed: _openAddDialog, child: const Icon(Icons.add)),
+      body: Column(
+        children: [
+          _buildFilterBar(provider),
+          Expanded(
+            child: provider.isLoading && products.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: () => provider.fetchProducts(
+                      reset: true,
+                      search: _searchQuery,
+                      category: _selectedCategory,
                     ),
-                  );
-                },
-              ),
-            ),
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(8),
+                      itemCount: products.length + (provider.hasMore ? 1 : 0),
+                      itemBuilder: (ctx, i) {
+                        if (i >= products.length) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final p = products[i];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            leading: p.image_url != null
+                                ? Image.network(p.image_url!,
+                                    width: 50, height: 50, fit: BoxFit.cover)
+                                : const Icon(Icons.image_not_supported,
+                                    size: 50),
+                            title: Text(p.name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                            subtitle: Text(
+                                'SKU: ${p.sku} • Category: ${p.category}'),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    onPressed: () => _openEditDialog(p)),
+                                IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    onPressed: () =>
+                                        _confirmDelete(p.id ?? '')),
+                              ],
+                            ),
+                            onTap: () => _openEditDialog(p),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

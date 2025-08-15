@@ -8,6 +8,7 @@ class Variant {
   double regularPrice;
   double weight;
   String color;
+  String? imageUrl;
 
   Variant({
     this.id,
@@ -17,6 +18,7 @@ class Variant {
     required this.regularPrice,
     required this.weight,
     required this.color,
+    this.imageUrl
   });
 
   factory Variant.fromJson(Map<String, dynamic> json) => Variant(
@@ -27,6 +29,7 @@ class Variant {
     regularPrice: (json['regularprice'] ?? 0).toDouble(),
     weight: (json['weight'] ?? 0).toDouble(),
     color: json['color'] ?? '',
+    imageUrl: json['image_url'] ?? null,
   );
 
   Map<String, dynamic> toJson() => {
@@ -37,6 +40,7 @@ class Variant {
     'regularprice': regularPrice,
     'weight': weight,
     'color': color,
+    if (imageUrl != null) 'image_url': imageUrl,
   };
 }
 
@@ -50,6 +54,7 @@ class Product {
   double? salePrice;
   double? regularPrice;
   double? weight;
+  String? image_url; // Added for image URL
   List<Variant>? variants;
 
   Product({
@@ -62,6 +67,7 @@ class Product {
     this.salePrice,
     this.regularPrice,
     this.weight,
+    this.image_url,
     this.variants,
   });
 
@@ -75,6 +81,7 @@ class Product {
     salePrice: json['saleprice']?.toDouble(),
     regularPrice: json['regularprice']?.toDouble(),
     weight: json['weight']?.toDouble(),
+    image_url: json['image_url'],
     variants: json['variants'] != null
         ? (json['variants'] as List)
             .map((v) => Variant.fromJson(v))
@@ -94,6 +101,7 @@ class Product {
       'regularprice': regularPrice,
       'weight': weight,
     },
+    if (image_url != null) 'image_url': image_url,
     if (hasVariant) 'variants': variants?.map((v) => v.toJson()).toList(),
   };
 }

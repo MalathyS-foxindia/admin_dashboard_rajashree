@@ -1,7 +1,6 @@
-import 'order_item_model.dart';
 
 class Order {
-  final String? orderId;
+  final String orderId;
   final String? customerId;
   final String customerName;
   final String address;
@@ -37,7 +36,7 @@ class Order {
   factory Order.fromJson(Map<String, dynamic> json) {
   return Order(
     orderDate: DateTime.parse(json['created_at']).toLocal().toString().split(' ')[0],
-    orderId:json['order_id']?.toString(),
+    orderId:json['order_id'].toString(),
     customerId: json['customer_id']?.toString(), // 👈 Safe conversion
     customerName: json['customer_name'] ?? '',
     address: json['address'] ?? '',

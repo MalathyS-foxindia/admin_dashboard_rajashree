@@ -6,17 +6,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../models/products_model.dart';
 
-/// ProductProvider
-/// - keeps local List<Product>
-/// - exposes isLoading & error states
-/// - performs REST calls to Supabase functions & tables (same endpoints you used)
 class ProductProvider with ChangeNotifier {
   final String _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
   final String _anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  final String _serviceRoleKey = dotenv.env['SUPABASE_SERVICE_ROLE'] ?? '';
 
   ProductProvider() {
     if (_supabaseUrl.isEmpty || _anonKey.isEmpty) {
-      // developer-friendly error (don't crash in release)
       debugPrint('Warning: Supabase URL or ANON key missing in .env');
     }
   }
@@ -25,26 +21,65 @@ class ProductProvider with ChangeNotifier {
   String? error;
 
   final List<Product> _items = [];
-
   List<Product> get items => List.unmodifiable(_items);
 
-  Future<void> fetchProducts() async {
+  final List<String> _categories = [];
+  List<String> get categories => List.unmodifiable(_categories);
+
+  int _page = 1;
+  final int _limit = 5;
+  bool _hasMore = true;
+
+  bool get hasMore => _hasMore;
+
+  /// Fetch products with pagination, search, category filter
+  Future<void> fetchProducts({
+    bool reset = false,
+    String? search,
+    String? category,
+  }) async {
+    if (reset) {
+      _page = 1;
+      _items.clear();
+      _hasMore = true;
+      notifyListeners();
+    }
+
+    if (!_hasMore && !reset) return;
+
     isLoading = true;
     error = null;
     notifyListeners();
 
     try {
-      final url = '$_supabaseUrl/functions/v1/get-product-with-variants';
+      final queryParams = {
+        'page': _page.toString(),
+        'limit': _limit.toString(),
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (category != null && category.isNotEmpty) 'category': category,
+      };
+
+      final uri = Uri.parse('$_supabaseUrl/functions/v1/get-product-with-variants')
+          .replace(queryParameters: queryParams);
+
       final resp = await http.get(
-        Uri.parse(url),
+        uri,
         headers: {'Authorization': 'Bearer $_anonKey'},
       );
 
       if (resp.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(resp.body);
-        _items
-          ..clear()
-          ..addAll(jsonList.map((j) => Product.fromJson(j as Map<String, dynamic>)));
+        final data = jsonDecode(resp.body);
+        final List<dynamic> jsonList = data['products'] ?? [];
+        final List<String> cats = List<String>.from(data['categories'] ?? []);
+
+        if (reset) {
+          _categories
+            ..clear()
+            ..addAll(cats);
+        }
+
+        _items.addAll(jsonList.map((j) => Product.fromJson(j as Map<String, dynamic>)));
+        _hasMore = jsonList.length == _limit;
       } else {
         error = 'Fetch failed: ${resp.statusCode}';
         debugPrint('fetchProducts error: ${resp.body}');
@@ -58,7 +93,16 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  /// Add product using your create-product-with-variants function
+  /// Load next page
+  Future<void> fetchMoreProducts({
+    String? search,
+    String? category,
+  }) async {
+    if (!_hasMore || isLoading) return;
+    _page++;
+    await fetchProducts(search: search, category: category);
+  }
+
   Future<bool> addProduct(Product p) async {
     isLoading = true;
     notifyListeners();
@@ -74,8 +118,7 @@ class ProductProvider with ChangeNotifier {
       );
 
       if (resp.statusCode == 200) {
-        // The function presumably returns created product — but to be safe, re-fetch
-        await fetchProducts();
+        await fetchProducts(reset: true);
         return true;
       } else {
         error = 'Add failed: ${resp.statusCode}';
@@ -92,75 +135,65 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  /// Update product via update-product-with-variants function
-  /// Update product via update-product-with-variants function
-Future<bool> updateProduct(Product p) async {
-  if (p.id == null) {
-    error = 'Missing product id';
-    return false;
-  }
-  print(jsonEncode(p.toJson()));
-  isLoading = true;
-  notifyListeners();
-  try {
- print("ProductProvider: Updating product " + jsonEncode(p.toJson()));
-
-    final url = '$_supabaseUrl/functions/v1/update-product-with-variants';
-    final resp = await http.post(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Bearer $_anonKey',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(p.toJson()),
-    );
-
-    if (resp.statusCode == 200 || resp.statusCode == 204) {
-      await fetchProducts();
-      return true;
-    } else if (resp.statusCode == 400) {
-      // Backend says some variants cannot be deleted
-      final Map<String, dynamic> respData = jsonDecode(resp.body);
-      if (respData.containsKey('variant_ids')) {
-        final ids = (respData['variant_ids'] as List).join(', ');
-        error =
-            'Cannot delete variants linked to existing orders: $ids';
-      } else {
-        error = respData['error'] ?? 'Update failed with status 400';
-      }
-      debugPrint('updateProduct blocked: ${resp.body}');
-      return false;
-    } else {
-      error = 'Update failed: ${resp.statusCode}';
-      debugPrint('updateProduct error: ${resp.body}');
+  Future<bool> updateProduct(Product p) async {
+    if (p.id == null) {
+      error = 'Missing product id';
       return false;
     }
-  } catch (e) {
-    error = e.toString();
-    debugPrint('updateProduct exception: $e');
-    return false;
-  } finally {
-    isLoading = false;
+    isLoading = true;
     notifyListeners();
-  }
-}
+    try {
+      final url = '$_supabaseUrl/functions/v1/update-product-with-variants';
+      final resp = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $_anonKey',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(p.toJson()),
+      );
 
-  /// Delete product using the REST table endpoint like you had:
+      if (resp.statusCode == 200 || resp.statusCode == 204) {
+        await fetchProducts(reset: true);
+        return true;
+      } else if (resp.statusCode == 400) {
+        final Map<String, dynamic> respData = jsonDecode(resp.body);
+        if (respData.containsKey('variant_id')) {
+          final ids = (respData['variant_id'] as List).join(', ');
+          error = 'Cannot delete variants linked to existing orders: $ids';
+        } else {
+          error = respData['error'] ?? 'Update failed with status 400';
+        }
+        return false;
+      } else {
+        error = 'Update failed: ${resp.statusCode}';
+        debugPrint('updateProduct error: ${resp.body}');
+        return false;
+      }
+    } catch (e) {
+      error = e.toString();
+      debugPrint('updateProduct exception: $e');
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> deleteProduct(String productId) async {
     isLoading = true;
     notifyListeners();
     try {
-      final url = '$_supabaseUrl/rest/v1/master_product?product_id=eq.$productId';
+      final url = '$_supabaseUrl/rest/v1/master_product?product_id=eq.${int.parse(productId)}';
       final resp = await http.delete(
         Uri.parse(url),
         headers: {
-          'apikey': _anonKey,
-          'Authorization': 'Bearer $_anonKey',
+          'apikey': _serviceRoleKey,
+          'Authorization': 'Bearer $_serviceRoleKey',
         },
       );
 
       if (resp.statusCode == 204) {
-        // remove locally for instant UI update
         _items.removeWhere((p) => p.id == productId);
         notifyListeners();
         return true;
@@ -179,7 +212,6 @@ Future<bool> updateProduct(Product p) async {
     }
   }
 
-  /// Delete a variant via REST call (like your deleteVariant function)
   Future<bool> deleteVariant(String variantId) async {
     isLoading = true;
     notifyListeners();
@@ -188,13 +220,12 @@ Future<bool> updateProduct(Product p) async {
       final resp = await http.delete(
         Uri.parse(url),
         headers: {
-          'apikey': _anonKey,
-          'Authorization': 'Bearer $_anonKey',
+          'apikey': _serviceRoleKey,
+          'Authorization': 'Bearer $_serviceRoleKey',
         },
       );
 
       if (resp.statusCode == 204) {
-        // remove variant from local product list
         for (var p in _items) {
           p.variants?.removeWhere((v) => v.id == variantId);
         }
