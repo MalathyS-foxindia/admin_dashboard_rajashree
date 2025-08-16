@@ -1,17 +1,12 @@
-// lib/widgets/product_form.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/products_model.dart';
 import '../providers/product_provider.dart';
 
-/// ProductForm
-/// - mode: add/edit based on `initial` being null or not
-/// - returns true on success
 class ProductForm extends StatefulWidget {
   final Product? initial;
-
-  const ProductForm({Key? key, this.initial}) : super(key: key);
+  const ProductForm({super.key, this.initial});
 
   @override
   State<ProductForm> createState() => _ProductFormState();
@@ -20,19 +15,16 @@ class ProductForm extends StatefulWidget {
 class _ProductFormState extends State<ProductForm> {
   final _formKey = GlobalKey<FormState>();
 
-  // basic product fields
   late TextEditingController _name;
   late TextEditingController _desc;
   late TextEditingController _sku;
   late TextEditingController _category;
   bool _hasVariant = false;
 
-  // non-variant fields
   late TextEditingController _salePrice;
   late TextEditingController _regularPrice;
   late TextEditingController _weight;
 
-  // variant controllers: list of maps for each variant
   List<Map<String, TextEditingController>> _variants = [];
 
   @override
@@ -75,7 +67,7 @@ class _ProductFormState extends State<ProductForm> {
     _weight.dispose();
     for (var m in _variants) {
       for (var c in m.values) {
-        (c as TextEditingController).dispose();
+        c.dispose();
       }
     }
     super.dispose();
@@ -99,7 +91,7 @@ class _ProductFormState extends State<ProductForm> {
     setState(() {
       final map = _variants.removeAt(idx);
       for (var c in map.values) {
-        (c as TextEditingController).dispose();
+        c.dispose();
       }
     });
   }
@@ -109,7 +101,6 @@ class _ProductFormState extends State<ProductForm> {
 
     final provider = Provider.of<ProductProvider>(context, listen: false);
 
-    // build Product model
     final product = Product(
       id: widget.initial?.id,
       name: _name.text.trim(),
@@ -135,18 +126,17 @@ class _ProductFormState extends State<ProductForm> {
           : [],
     );
 
-    bool ok;
-    if (widget.initial == null) {
-      ok = await provider.addProduct(product);
-    } else {
-      ok = await provider.updateProduct(product);
-    }
+    bool ok = widget.initial == null
+        ? await provider.addProduct(product)
+        : await provider.updateProduct(product);
 
-    if (ok) Navigator.of(context).pop(true);
-    else {
-      // show error (provider.error)
+    if (ok) {
+      Navigator.of(context).pop(true);
+    } else {
       final err = provider.error ?? 'Unknown error';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      }
     }
   }
 
@@ -159,15 +149,35 @@ class _ProductFormState extends State<ProductForm> {
         child: Column(
           children: [
             Row(children: [
-              Expanded(child: TextFormField(controller: m['variant_name'], decoration: const InputDecoration(labelText: 'Variant name'), validator: (s) => (s==null||s.isEmpty) ? 'Required' : null)),
-              const SizedBox(width: 8),
-              IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _removeVariantRow(idx)),
+              Expanded(
+                child: TextFormField(
+                  controller: m['variant_name'],
+                  decoration: const InputDecoration(labelText: 'Variant name'),
+                  validator: (s) => (s == null || s.isEmpty) ? 'Required' : null,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _removeVariantRow(idx),
+              ),
             ]),
             TextFormField(controller: m['sku'], decoration: const InputDecoration(labelText: 'SKU')),
             Row(children: [
-              Expanded(child: TextFormField(controller: m['saleprice'], keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sale price'))),
+              Expanded(
+                child: TextFormField(
+                  controller: m['saleprice'],
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Sale price'),
+                ),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: TextFormField(controller: m['regularprice'], keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Regular price'))),
+              Expanded(
+                child: TextFormField(
+                  controller: m['regularprice'],
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Regular price'),
+                ),
+              ),
             ]),
             TextFormField(controller: m['weight'], keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight')),
             TextFormField(controller: m['color'], decoration: const InputDecoration(labelText: 'Color')),
@@ -180,6 +190,8 @@ class _ProductFormState extends State<ProductForm> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.initial != null;
+    final provider = Provider.of<ProductProvider>(context);
+
     return AlertDialog(
       title: Text(isEdit ? 'Edit product' : 'Add product'),
       content: SingleChildScrollView(
@@ -187,11 +199,27 @@ class _ProductFormState extends State<ProductForm> {
           key: _formKey,
           child: Column(
             children: [
-              // product fields
-              TextFormField(controller: _name, decoration: const InputDecoration(labelText: 'Name'), validator: (s) => (s==null||s.isEmpty) ? 'Required' : null),
+              TextFormField(controller: _name, decoration: const InputDecoration(labelText: 'Name'), validator: (s) => (s == null || s.isEmpty) ? 'Required' : null),
               TextFormField(controller: _desc, decoration: const InputDecoration(labelText: 'Description')),
               TextFormField(controller: _sku, decoration: const InputDecoration(labelText: 'SKU')),
-              TextFormField(controller: _category, decoration: const InputDecoration(labelText: 'Category')),
+
+              // 🔽 use dropdown if categories exist
+              Consumer<ProductProvider>(
+                builder: (ctx, prov, _) {
+                  final cats = prov.categories;
+                  if (cats.isEmpty) {
+                    return TextFormField(controller: _category, decoration: const InputDecoration(labelText: 'Category'));
+                  }
+                  return DropdownButtonFormField<String>(
+                    value: _category.text.isNotEmpty ? _category.text : null,
+                    items: cats.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                    onChanged: (val) {
+                      if (val != null) _category.text = val;
+                    },
+                    decoration: const InputDecoration(labelText: 'Category'),
+                  );
+                },
+              ),
 
               const SizedBox(height: 8),
               Row(
@@ -206,8 +234,7 @@ class _ProductFormState extends State<ProductForm> {
                 TextFormField(controller: _regularPrice, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Regular price')),
                 TextFormField(controller: _weight, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight')),
               ] else ...[
-                const SizedBox(height: 8),
-                ..._variants.asMap().entries.map((e) => _variantCard(e.key)).toList(),
+                ..._variants.asMap().entries.map((e) => _variantCard(e.key)),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(onPressed: _addVariantRow, icon: const Icon(Icons.add), label: const Text('Add Variant')),
@@ -219,7 +246,12 @@ class _ProductFormState extends State<ProductForm> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-        ElevatedButton(onPressed: _submit, child: Text(isEdit ? 'Save changes' : 'Create')),
+        ElevatedButton(
+          onPressed: provider.isLoading ? null : _submit,
+          child: provider.isLoading
+              ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(isEdit ? 'Save changes' : 'Create'),
+        ),
       ],
     );
   }

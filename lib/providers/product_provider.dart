@@ -1,4 +1,3 @@
-// lib/providers/product_provider.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -13,7 +12,7 @@ class ProductProvider with ChangeNotifier {
 
   ProductProvider() {
     if (_supabaseUrl.isEmpty || _anonKey.isEmpty) {
-      debugPrint('Warning: Supabase URL or ANON key missing in .env');
+      debugPrint('⚠️ Supabase URL or keys are missing in .env');
     }
   }
 
@@ -27,7 +26,7 @@ class ProductProvider with ChangeNotifier {
   List<String> get categories => List.unmodifiable(_categories);
 
   int _page = 1;
-  final int _limit = 5;
+  final int _limit = 10;
   bool _hasMore = true;
 
   bool get hasMore => _hasMore;
@@ -38,17 +37,18 @@ class ProductProvider with ChangeNotifier {
     String? search,
     String? category,
   }) async {
+    if (isLoading && !reset) return;
+    if (!_hasMore && !reset) return;
+
     if (reset) {
       _page = 1;
       _items.clear();
+      _categories.clear();
       _hasMore = true;
-      notifyListeners();
+      error = null;
     }
 
-    if (!_hasMore && !reset) return;
-
     isLoading = true;
-    error = null;
     notifyListeners();
 
     try {
@@ -59,34 +59,58 @@ class ProductProvider with ChangeNotifier {
         if (category != null && category.isNotEmpty) 'category': category,
       };
 
-      final uri = Uri.parse('$_supabaseUrl/functions/v1/get-product-with-variants')
-          .replace(queryParameters: queryParams);
+      final uri = Uri.parse(
+        '$_supabaseUrl/functions/v1/get-product-with-variants',
+      ).replace(queryParameters: queryParams);
+
+      debugPrint('📡 Fetching products from: $uri');
 
       final resp = await http.get(
         uri,
-        headers: {'Authorization': 'Bearer $_anonKey'},
+        headers: {
+          'apikey': _anonKey,
+          'Authorization': 'Bearer $_anonKey',
+          'Content-Type': 'application/json',
+        },
       );
 
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
-        final List<dynamic> jsonList = data['products'] ?? [];
-        final List<String> cats = List<String>.from(data['categories'] ?? []);
+
+        // Backend response: use "data" key for products
+        final List<dynamic> jsonList = data['data'] ?? [];
+
+        final newProducts = jsonList
+            .map((j) => Product.fromJson(j as Map<String, dynamic>))
+            .toList();
 
         if (reset) {
-          _categories
-            ..clear()
-            ..addAll(cats);
+          final productCategories = newProducts
+              .map((p) => p.category ?? '')
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList();
+          _categories.addAll(productCategories);
         }
 
-        _items.addAll(jsonList.map((j) => Product.fromJson(j as Map<String, dynamic>)));
-        _hasMore = jsonList.length == _limit;
+        _items.addAll(newProducts);
+
+        // check if more pages exist
+        final int total = data['total'] ?? 0;
+        if (total > 0) {
+          _hasMore = _items.length < total;
+        } else {
+          _hasMore = newProducts.isNotEmpty;
+        }
+
+        if (_hasMore) _page++;
       } else {
-        error = 'Fetch failed: ${resp.statusCode}';
-        debugPrint('fetchProducts error: ${resp.body}');
+        error = 'Fetch failed (${resp.statusCode}): ${resp.body}';
+        debugPrint('❌ fetchProducts error: ${resp.body}');
       }
     } catch (e) {
       error = e.toString();
-      debugPrint('fetchProducts exception: $e');
+      debugPrint('❌ fetchProducts exception: $e');
     } finally {
       isLoading = false;
       notifyListeners();
@@ -99,7 +123,6 @@ class ProductProvider with ChangeNotifier {
     String? category,
   }) async {
     if (!_hasMore || isLoading) return;
-    _page++;
     await fetchProducts(search: search, category: category);
   }
 
@@ -111,6 +134,7 @@ class ProductProvider with ChangeNotifier {
       final resp = await http.post(
         Uri.parse(url),
         headers: {
+          'apikey': _anonKey,
           'Authorization': 'Bearer $_anonKey',
           'Content-Type': 'application/json',
         },
@@ -121,13 +145,12 @@ class ProductProvider with ChangeNotifier {
         await fetchProducts(reset: true);
         return true;
       } else {
-        error = 'Add failed: ${resp.statusCode}';
-        debugPrint('addProduct error: ${resp.body}');
+        error = 'Add failed (${resp.statusCode}): ${resp.body}';
         return false;
       }
     } catch (e) {
       error = e.toString();
-      debugPrint('addProduct exception: $e');
+      debugPrint('❌ addProduct exception: $e');
       return false;
     } finally {
       isLoading = false;
@@ -147,6 +170,7 @@ class ProductProvider with ChangeNotifier {
       final resp = await http.post(
         Uri.parse(url),
         headers: {
+          'apikey': _anonKey,
           'Authorization': 'Bearer $_anonKey',
           'Content-Type': 'application/json',
         },
@@ -160,19 +184,18 @@ class ProductProvider with ChangeNotifier {
         final Map<String, dynamic> respData = jsonDecode(resp.body);
         if (respData.containsKey('variant_id')) {
           final ids = (respData['variant_id'] as List).join(', ');
-          error = 'Cannot delete variants linked to existing orders: $ids';
+          error = 'Variants linked to existing orders: $ids';
         } else {
           error = respData['error'] ?? 'Update failed with status 400';
         }
         return false;
       } else {
-        error = 'Update failed: ${resp.statusCode}';
-        debugPrint('updateProduct error: ${resp.body}');
+        error = 'Update failed (${resp.statusCode}): ${resp.body}';
         return false;
       }
     } catch (e) {
       error = e.toString();
-      debugPrint('updateProduct exception: $e');
+      debugPrint('❌ updateProduct exception: $e');
       return false;
     } finally {
       isLoading = false;
@@ -184,7 +207,8 @@ class ProductProvider with ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
-      final url = '$_supabaseUrl/rest/v1/master_product?product_id=eq.${int.parse(productId)}';
+      final url =
+          '$_supabaseUrl/rest/v1/master_product?product_id=eq.$productId';
       final resp = await http.delete(
         Uri.parse(url),
         headers: {
@@ -198,13 +222,12 @@ class ProductProvider with ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        error = 'Delete failed: ${resp.statusCode}';
-        debugPrint('deleteProduct error: ${resp.body}');
+        error = 'Delete failed (${resp.statusCode}): ${resp.body}';
         return false;
       }
     } catch (e) {
       error = e.toString();
-      debugPrint('deleteProduct exception: $e');
+      debugPrint('❌ deleteProduct exception: $e');
       return false;
     } finally {
       isLoading = false;
@@ -232,13 +255,12 @@ class ProductProvider with ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        error = 'Delete variant failed: ${resp.statusCode}';
-        debugPrint('deleteVariant error: ${resp.body}');
+        error = 'Delete variant failed (${resp.statusCode}): ${resp.body}';
         return false;
       }
     } catch (e) {
       error = e.toString();
-      debugPrint('deleteVariant exception: $e');
+      debugPrint('❌ deleteVariant exception: $e');
       return false;
     } finally {
       isLoading = false;

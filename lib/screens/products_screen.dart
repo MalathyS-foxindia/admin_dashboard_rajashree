@@ -1,4 +1,3 @@
-// lib/screens/products_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,13 +21,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void initState() {
     super.initState();
 
-    // First load
-    Future.microtask(() {
-      Provider.of<ProductProvider>(context, listen: false)
-          .fetchProducts(reset: true);
+    // ✅ Safe fetch after first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ProductProvider>(context, listen: false).fetchProducts();
     });
 
-    // Infinite scroll listener
+    // Infinite scroll
     _scrollController.addListener(() {
       final provider = Provider.of<ProductProvider>(context, listen: false);
       if (_scrollController.position.pixels >=
@@ -48,7 +46,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (_) => const ProductForm(),
     );
-    if (ok == true) {
+    if (ok == true && mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Product created')));
       Provider.of<ProductProvider>(context, listen: false)
@@ -61,7 +59,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (_) => ProductForm(initial: p),
     );
-    if (ok == true) {
+    if (ok == true && mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Product updated')));
       Provider.of<ProductProvider>(context, listen: false)
@@ -90,10 +88,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final provider = Provider.of<ProductProvider>(context, listen: false);
       final ok = await provider.deleteProduct(productId);
       if (ok) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Deleted')));
-        provider.fetchProducts(reset: true);
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(provider.error ?? 'Delete failed')));
       }
@@ -114,7 +113,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 border: OutlineInputBorder(),
               ),
               onChanged: (val) {
-                setState(() => _searchQuery = val);
+                _searchQuery = val;
                 provider.fetchProducts(
                   reset: true,
                   search: val,
@@ -129,8 +128,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             hint: const Text('Category'),
             value: _selectedCategory,
             items: [
-              const DropdownMenuItem<String?>(
-                  value: null, child: Text('All')),
+              const DropdownMenuItem<String?>(value: null, child: Text('All')),
               ...provider.categories
                   .map((cat) =>
                       DropdownMenuItem<String?>(value: cat, child: Text(cat))),
@@ -151,71 +149,91 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<ProductProvider>(context);
-    final products = provider.items;
+    return Consumer<ProductProvider>(
+      builder: (context, provider, _) {
+        final products = provider.items;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Products')),
-      floatingActionButton: FloatingActionButton(
-          onPressed: _openAddDialog, child: const Icon(Icons.add)),
-      body: Column(
-        children: [
-          _buildFilterBar(provider),
-          Expanded(
-            child: provider.isLoading && products.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: () => provider.fetchProducts(
-                      reset: true,
-                      search: _searchQuery,
-                      category: _selectedCategory,
-                    ),
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(8),
-                      itemCount: products.length + (provider.hasMore ? 1 : 0),
-                      itemBuilder: (ctx, i) {
-                        if (i >= products.length) {
-                          return const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Center(child: CircularProgressIndicator()),
-                          );
-                        }
-                        final p = products[i];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            leading: p.image_url != null
-                                ? Image.network(p.image_url!,
-                                    width: 50, height: 50, fit: BoxFit.cover)
-                                : const Icon(Icons.image_not_supported,
-                                    size: 50),
-                            title: Text(p.name,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            subtitle: Text(
-                                'SKU: ${p.sku} • Category: ${p.category}'),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                    icon: const Icon(Icons.edit),
-                                    onPressed: () => _openEditDialog(p)),
-                                IconButton(
-                                    icon: const Icon(Icons.delete),
-                                    onPressed: () =>
-                                        _confirmDelete(p.id ?? '')),
-                              ],
+        return Scaffold(
+          appBar: AppBar(title: const Text('Products')),
+          floatingActionButton: FloatingActionButton(
+              onPressed: _openAddDialog, child: const Icon(Icons.add)),
+          body: Column(
+            children: [
+              _buildFilterBar(provider),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => provider.fetchProducts(reset: true),
+                  child: Builder(
+                    builder: (ctx) {
+                      if (provider.isLoading && products.isEmpty) {
+                        return const Center(
+                            child: CircularProgressIndicator());
+                      }
+                      if (provider.error != null && products.isEmpty) {
+                        return Center(
+                            child: Text('Error: ${provider.error}'));
+                      }
+                      if (products.isEmpty) {
+                        return const Center(child: Text('No products found'));
+                      }
+
+                      return ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(8),
+                        itemCount: products.length + (provider.hasMore ? 1 : 0),
+                        itemBuilder: (ctx, i) {
+                          if (i >= products.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child:
+                                  Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          final p = products[i];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: ListTile(
+                              leading: p.image_url != null
+                                  ? Image.network(p.image_url!,
+                                      width: 50, height: 50, fit: BoxFit.cover)
+                                  : const Icon(Icons.image_not_supported,
+                                      size: 50),
+                              title: Text(p.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              subtitle: Text(
+                                  'SKU: ${p.sku} • Category: ${p.category}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () => _openEditDialog(p)),
+                                  IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () =>
+                                          _confirmDelete(p.id ?? '')),
+                                ],
+                              ),
+                              onTap: () => _openEditDialog(p),
                             ),
-                            onTap: () => _openEditDialog(p),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      );
+                    },
                   ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 }
