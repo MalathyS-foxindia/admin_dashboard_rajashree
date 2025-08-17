@@ -9,8 +9,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/order_provider.dart';
 
 import 'providers/product_provider.dart';
-import 'screens/orders_screen.dart';
-import  'screens/products_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

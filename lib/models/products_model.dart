@@ -80,10 +80,12 @@ class Product {
     // If product itself has no price, take from first variant
     double salePrice = (json['saleprice'] ?? 0).toDouble();
     double regularPrice = (json['regularprice'] ?? 0).toDouble();
+    double weight = (json['weight'] ?? 0).toDouble();
 
-    if ((salePrice == 0 || regularPrice == 0) && variantsList.isNotEmpty) {
+    if ((salePrice == 0 || regularPrice == 0|| weight ==0) && variantsList.isNotEmpty) {
       salePrice = variantsList.first.salePrice;
       regularPrice = variantsList.first.regularPrice;
+      weight = variantsList.first.weight;
     }
 
     return Product(
@@ -95,7 +97,7 @@ class Product {
       hasVariant: json['has_variant'] ?? false,
       salePrice: salePrice,
       regularPrice: regularPrice,
-      weight: (json['weight'] ?? 0).toDouble(),
+      weight: weight,
       imageUrl: json['image_url'],
       variants: variantsList,
     );

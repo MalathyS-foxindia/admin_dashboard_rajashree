@@ -32,8 +32,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List<Product> _applyFilter(List<Product> all) {
     return all.where((p) {
       return p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (p.sku?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-          (p.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+          (p.sku.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+          (p.category.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
     }).toList();
   }
 
@@ -61,6 +61,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (_) => ProductForm(initial: p),
     );
+
+   
     if (ok == true && mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Product updated')));
@@ -193,7 +195,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               title: Text(p.name,
                                   style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle:
-                                  Text('SKU: ${p.sku} • Category: ${p.category}'),
+                                  Text('SKU: ${p.sku} • Category: ${p.category} - Weight: ${p.weight ?? 'N/A'}'),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [

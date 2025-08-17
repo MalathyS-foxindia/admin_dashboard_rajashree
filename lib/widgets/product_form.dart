@@ -40,8 +40,8 @@ class _ProductFormState extends State<ProductForm> {
     _salePrice = TextEditingController(text: p?.salePrice?.toString() ?? '');
     _regularPrice = TextEditingController(text: p?.regularPrice?.toString() ?? '');
     _weight = TextEditingController(text: p?.weight?.toString() ?? '');
-
-    if (_hasVariant && p?.variants != null) {
+    print(_weight);
+    if ( p?.variants != null) {
       _variants = p!.variants!
           .map((v) => {
                 'variant_id': TextEditingController(text: v.id ?? ''),
@@ -108,11 +108,10 @@ class _ProductFormState extends State<ProductForm> {
       sku: _sku.text.trim(),
       category: _category.text.trim(),
       hasVariant: _hasVariant,
-      salePrice: _hasVariant ? null : double.tryParse(_salePrice.text) ?? 0.0,
-      regularPrice: _hasVariant ? null : double.tryParse(_regularPrice.text) ?? 0.0,
-      weight: _hasVariant ? null : double.tryParse(_weight.text) ?? 0.0,
-      variants: _hasVariant
-          ? _variants.map((m) {
+     salePrice: _hasVariant ? null : double.tryParse(_salePrice.text) ?? widget.initial?.salePrice,
+    regularPrice: _hasVariant ? null : double.tryParse(_regularPrice.text) ?? widget.initial?.regularPrice,
+    weight: _hasVariant ? null : double.tryParse(_weight.text) ?? widget.initial?.weight,
+          variants:  _variants.map((m) {
               return Variant(
                 id: (m['variant_id']!.text.isEmpty) ? null : m['variant_id']!.text,
                 name: m['variant_name']!.text,
@@ -123,9 +122,10 @@ class _ProductFormState extends State<ProductForm> {
                 color: m['color']!.text,
               );
             }).toList()
-          : [],
+          ,
     );
-
+    print("Updated product:");
+    print(product);
     bool ok = widget.initial == null
         ? await provider.addProduct(product)
         : await provider.updateProduct(product);

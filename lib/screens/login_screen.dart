@@ -1,6 +1,5 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:admin_dashboard_rajshree/screens/dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -42,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final isWide = MediaQuery.of(context).size.width > 600;
     return Scaffold(
       body: Container(
-        color: Theme.of(context).colorScheme.background,
+        color: Theme.of(context).colorScheme.surface,
         alignment: Alignment.center,
         child: SingleChildScrollView(
           child: Padding(

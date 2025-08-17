@@ -1,17 +1,14 @@
-import 'dart:convert';
+// Import the SupabaseService from its new location
 import 'package:admin_dashboard_rajshree/screens/orders_screen.dart';
 import 'package:admin_dashboard_rajshree/screens/products_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
-
-// import 'package:rajshree_fashions/screens/shipments_screen.dart'; // 🚧 not added yet
+import 'package:admin_dashboard_rajshree/services/dashboard_service.dart';
 
 enum DashboardMenu {
   dashboard,
   orders,
   products,
-  // shipments, // 🚧 commented out until implemented
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -23,7 +20,21 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   DashboardMenu selectedMenu = DashboardMenu.dashboard;
-
+  final SupabaseService _supabaseService = SupabaseService();
+  DateTime _selectedDate = DateTime.now(); // State variable for the date
+  Future<void> _pickDate(BuildContext context) async {
+  final DateTime? picked = await showDatePicker(
+    context: context,
+    initialDate: _selectedDate,
+    firstDate: DateTime(2000),
+    lastDate: DateTime.now(),
+  );
+  if (picked != null && picked != _selectedDate) {
+    setState(() {
+      _selectedDate = picked;
+    });
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,13 +88,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: const Text("Products"),
             onTap: () => setState(() => selectedMenu = DashboardMenu.products),
           ),
-          // 🚧 Uncomment when shipments screen is ready
-          // ListTile(
-          //   selected: selectedMenu == DashboardMenu.shipments,
-          //   leading: const Icon(Icons.local_shipping),
-          //   title: const Text("Shipments"),
-          //   onTap: () => setState(() => selectedMenu = DashboardMenu.shipments),
-          // ),
         ],
       ),
     );
@@ -93,67 +97,98 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildContent() {
     switch (selectedMenu) {
       case DashboardMenu.dashboard:
-        return _buildDashboardCards(context);
-
+        return _buildDashboardContent();
       case DashboardMenu.orders:
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const OrdersScreen()),
-          );
-          setState(() => selectedMenu = DashboardMenu.dashboard);
-        });
-        return const SizedBox.shrink();
-
+        return const OrdersScreen();
       case DashboardMenu.products:
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ProductsScreen()),
-          );
-          setState(() => selectedMenu = DashboardMenu.dashboard);
-        });
-        return const SizedBox.shrink();
-
-      // case DashboardMenu.shipments:
-      //   WidgetsBinding.instance.addPostFrameCallback((_) {
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(builder: (_) => const ShipmentsScreen()),
-      //     );
-      //     setState(() => selectedMenu = DashboardMenu.dashboard);
-      //   });
-      //   return const SizedBox.shrink();
+        return const ProductsScreen();
     }
   }
 
-  /// Dashboard summary cards
-  Widget _buildDashboardCards(BuildContext context) {
+  /// Full dashboard content with cards
+  Widget _buildDashboardContent() {
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 1000;
     final isTablet = width >= 700 && width < 1000;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final cols = isDesktop ? 4 : (isTablet ? 2 : 1);
-        return GridView(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            mainAxisExtent: 110,
-          ),
-          children: const [
-            _SummaryCard(title: "Sales", value: "₹0", color: Colors.blue),
-            _SummaryCard(title: "Orders", value: "0", color: Colors.green),
-            _SummaryCard(title: "Customers", value: "0", color: Colors.orange),
-            _SummaryCard(title: "Products", value: "0", color: Colors.purple),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Dashboard Overview",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text(
+                    "Data for: ${_selectedDate.toLocal().toString().split(' ')[0]}",
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    onPressed: () => _pickDate(context),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 16),
+            FutureBuilder<List<Map<String, dynamic>>?>(
+              future: _supabaseService.getDailySalesStats(_selectedDate),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError || !snapshot.hasData) {
+                  return const Center(child: Text("Failed to load data."));
+                }
+
+                final dailyStats = snapshot.data!;
+                final totalSales = dailyStats.isNotEmpty
+                    ? dailyStats[0]['total_sales']?.toString() ?? '0'
+                    : '0';
+                final orderCount = dailyStats.isNotEmpty
+                    ? dailyStats[0]['order_count']?.toString() ?? '0'
+                    : '0';
+
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cols = isDesktop ? 4 : (isTablet ? 2 : 1);
+                    return GridView(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: cols,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        mainAxisExtent: 110,
+                      ),
+                      children: [
+                        _SummaryCard(
+                          title: "Sales (Today)",
+                          value: "₹$totalSales",
+                          color: Colors.blue,
+                        ),
+                        _SummaryCard(
+                          title: "Orders (Today)",
+                          value: orderCount,
+                          color: Colors.green,
+                        ),
+                        const _SummaryCard(
+                            title: "Customers", value: "0", color: Colors.orange),
+                        const _SummaryCard(
+                            title: "Products", value: "0", color: Colors.purple),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }

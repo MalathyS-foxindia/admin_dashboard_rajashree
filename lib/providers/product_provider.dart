@@ -80,6 +80,7 @@ class ProductProvider with ChangeNotifier {
         final data = jsonDecode(resp.body);
 
         final List<dynamic> jsonList = data['data'] ?? [];
+        print(jsonList);
         final newProducts = jsonList
             .map((j) => Product.fromJson(j as Map<String, dynamic>))
             .toList();
@@ -174,6 +175,7 @@ class ProductProvider with ChangeNotifier {
 
     try {
       final url = '$_supabaseUrl/functions/v1/update-product-with-variants';
+  
       final resp = await http.post(
         Uri.parse(url),
         headers: {
@@ -181,6 +183,7 @@ class ProductProvider with ChangeNotifier {
           'Authorization': 'Bearer $_anonKey',
           'Content-Type': 'application/json',
         },
+        
         body: jsonEncode(p.toJson()),
       );
 
