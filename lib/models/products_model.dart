@@ -18,30 +18,30 @@ class Variant {
     required this.regularPrice,
     required this.weight,
     required this.color,
-    this.imageUrl
+    this.imageUrl,
   });
 
   factory Variant.fromJson(Map<String, dynamic> json) => Variant(
-    id: json['variant_id']?.toString(),
-    name: json['variant_name'],
-    sku: json['sku'],
-    salePrice: (json['saleprice'] ?? 0).toDouble(),
-    regularPrice: (json['regularprice'] ?? 0).toDouble(),
-    weight: (json['weight'] ?? 0).toDouble(),
-    color: json['color'] ?? '',
-    imageUrl: json['image_url'] ?? null,
-  );
+        id: json['variant_id']?.toString(),
+        name: json['variant_name'],
+        sku: json['sku'],
+        salePrice: (json['saleprice'] ?? 0).toDouble(),
+        regularPrice: (json['regularprice'] ?? 0).toDouble(),
+        weight: (json['weight'] ?? 0).toDouble(),
+        color: json['color'] ?? '',
+        imageUrl: json['image_url'],
+      );
 
   Map<String, dynamic> toJson() => {
-    if (id != null) 'variant_id': id,
-    'variant_name': name,
-    'sku': sku,
-    'saleprice': salePrice,
-    'regularprice': regularPrice,
-    'weight': weight,
-    'color': color,
-    if (imageUrl != null) 'image_url': imageUrl,
-  };
+        if (id != null) 'variant_id': id,
+        'variant_name': name,
+        'sku': sku,
+        'saleprice': salePrice,
+        'regularprice': regularPrice,
+        'weight': weight,
+        'color': color,
+        if (imageUrl != null) 'image_url': imageUrl,
+      };
 }
 
 class Product {
@@ -54,7 +54,7 @@ class Product {
   double? salePrice;
   double? regularPrice;
   double? weight;
-  String? image_url; // Added for image URL
+  String? imageUrl;
   List<Variant>? variants;
 
   Product({
@@ -64,44 +64,61 @@ class Product {
     required this.sku,
     required this.category,
     required this.hasVariant,
-    this.salePrice,
-    this.regularPrice,
+    required this.salePrice,
+    required this.regularPrice,
     this.weight,
-    this.image_url,
+    this.imageUrl,
     this.variants,
   });
 
-  factory Product.fromJson(Map<String, dynamic> json) => Product(
-    id: json['product_id']?.toString(),
-    name: json['name'],
-    description: json['description'],
-    sku: json['sku'],
-    category: json['category'],
-    hasVariant: json['has_variant'],
-    salePrice: json['saleprice']?.toDouble(),
-    regularPrice: json['regularprice']?.toDouble(),
-    weight: json['weight']?.toDouble(),
-    image_url: json['image_url'],
-    variants: json['variants'] != null
-        ? (json['variants'] as List)
-            .map((v) => Variant.fromJson(v))
-            .toList()
-        : [],
-  );
+  factory Product.fromJson(Map<String, dynamic> json) {
+     final variantsJson = json['variants'] as List<dynamic>? ?? [];
+  final List<Variant> variantsList = variantsJson
+      .map((v) => Variant.fromJson(v as Map<String, dynamic>))
+      .toList();
 
-  Map<String, dynamic> toJson() => {
-    if (id != null) 'product_id': id,
-    'name': name,
-    'description': description,
-    'sku': sku,
-    'category': category,
-    'has_variant': hasVariant,
-    if (!hasVariant) ...{
+    // If product itself has no price, take from first variant
+    double salePrice = (json['saleprice'] ?? 0).toDouble();
+    double regularPrice = (json['regularprice'] ?? 0).toDouble();
+
+    if ((salePrice == 0 || regularPrice == 0) && variantsList.isNotEmpty) {
+      salePrice = variantsList.first.salePrice;
+      regularPrice = variantsList.first.regularPrice;
+    }
+
+    return Product(
+      id: json['product_id']?.toString(),
+      name: json['name'],
+      description: json['description'],
+      sku: json['sku'],
+      category: json['category'],
+      hasVariant: json['has_variant'] ?? false,
+      salePrice: salePrice,
+      regularPrice: regularPrice,
+      weight: (json['weight'] ?? 0).toDouble(),
+      imageUrl: json['image_url'],
+      variants: variantsList,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final data = {
+      if (id != null) 'product_id': id,
+      'name': name,
+      'description': description,
+      'sku': sku,
+      'category': category,
+      'has_variant': hasVariant,
       'saleprice': salePrice,
       'regularprice': regularPrice,
-      'weight': weight,
-    },
-    if (image_url != null) 'image_url': image_url,
-    if (hasVariant) 'variants': variants?.map((v) => v.toJson()).toList(),
-  };
+      if (weight != null) 'weight': weight,
+      if (imageUrl != null) 'image_url': imageUrl,
+    };
+
+    if (hasVariant) {
+      data['variants'] = variants?.map((v) => v.toJson()).toList() ?? [];
+    }
+
+    return data;
+  }
 }

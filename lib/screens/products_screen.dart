@@ -13,32 +13,35 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
-  final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
   String? _selectedCategory;
+
+  // Pagination state
+  int _page = 0;
+  int _pageSize = 10;
+  final List<int> _pageSizeOptions = [5, 10, 20, 50];
 
   @override
   void initState() {
     super.initState();
-
-    // ✅ Safe fetch after first build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ProductProvider>(context, listen: false).fetchProducts();
     });
+  }
 
-    // Infinite scroll
-    _scrollController.addListener(() {
-      final provider = Provider.of<ProductProvider>(context, listen: false);
-      if (_scrollController.position.pixels >=
-              _scrollController.position.maxScrollExtent - 200 &&
-          !provider.isLoading &&
-          provider.hasMore) {
-        provider.fetchMoreProducts(
-          search: _searchQuery,
-          category: _selectedCategory,
-        );
-      }
-    });
+  List<Product> _applyFilter(List<Product> all) {
+    return all.where((p) {
+      return p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (p.sku?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+          (p.category?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+    }).toList();
+  }
+
+  List<Product> _pagedProducts(List<Product> filtered) {
+    final start = _page * _pageSize;
+    if (start >= filtered.length) return [];
+    final end = (_page + 1) * _pageSize;
+    return filtered.sublist(start, end.clamp(0, filtered.length));
   }
 
   Future<void> _openAddDialog() async {
@@ -49,8 +52,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (ok == true && mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Product created')));
-      Provider.of<ProductProvider>(context, listen: false)
-          .fetchProducts(reset: true);
+      Provider.of<ProductProvider>(context, listen: false).fetchProducts(reset: true);
     }
   }
 
@@ -62,8 +64,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (ok == true && mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Product updated')));
-      Provider.of<ProductProvider>(context, listen: false)
-          .fetchProducts(reset: true);
+      Provider.of<ProductProvider>(context, listen: false).fetchProducts(reset: true);
     }
   }
 
@@ -91,6 +92,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Deleted')));
+        provider.fetchProducts(reset: true);
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,12 +115,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 border: OutlineInputBorder(),
               ),
               onChanged: (val) {
-                _searchQuery = val;
-                provider.fetchProducts(
-                  reset: true,
-                  search: val,
-                  category: _selectedCategory,
-                );
+                setState(() {
+                  _searchQuery = val;
+                  _page = 0;
+                });
               },
             ),
           ),
@@ -130,16 +130,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
             items: [
               const DropdownMenuItem<String?>(value: null, child: Text('All')),
               ...provider.categories
-                  .map((cat) =>
-                      DropdownMenuItem<String?>(value: cat, child: Text(cat))),
+                  .map((cat) => DropdownMenuItem<String?>(value: cat, child: Text(cat))),
             ],
             onChanged: (val) {
-              setState(() => _selectedCategory = val);
-              provider.fetchProducts(
-                reset: true,
-                search: _searchQuery,
-                category: val,
-              );
+              setState(() {
+                _selectedCategory = val;
+                _page = 0;
+              });
             },
           ),
         ],
@@ -151,7 +148,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget build(BuildContext context) {
     return Consumer<ProductProvider>(
       builder: (context, provider, _) {
-        final products = provider.items;
+        final filtered = _applyFilter(provider.items
+            .where((p) => _selectedCategory == null || p.category == _selectedCategory)
+            .toList());
+
+        final pageProducts = _pagedProducts(filtered);
+        final totalPages =
+            (filtered.length / _pageSize).ceil().clamp(1, double.infinity).toInt();
 
         return Scaffold(
           appBar: AppBar(title: const Text('Products')),
@@ -165,44 +168,32 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   onRefresh: () => provider.fetchProducts(reset: true),
                   child: Builder(
                     builder: (ctx) {
-                      if (provider.isLoading && products.isEmpty) {
-                        return const Center(
-                            child: CircularProgressIndicator());
+                      if (provider.isLoading && provider.items.isEmpty) {
+                        return const Center(child: CircularProgressIndicator());
                       }
-                      if (provider.error != null && products.isEmpty) {
-                        return Center(
-                            child: Text('Error: ${provider.error}'));
+                      if (provider.error != null && provider.items.isEmpty) {
+                        return Center(child: Text('Error: ${provider.error}'));
                       }
-                      if (products.isEmpty) {
+                      if (filtered.isEmpty) {
                         return const Center(child: Text('No products found'));
                       }
 
                       return ListView.builder(
-                        controller: _scrollController,
                         padding: const EdgeInsets.all(8),
-                        itemCount: products.length + (provider.hasMore ? 1 : 0),
+                        itemCount: pageProducts.length,
                         itemBuilder: (ctx, i) {
-                          if (i >= products.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child:
-                                  Center(child: CircularProgressIndicator()),
-                            );
-                          }
-                          final p = products[i];
+                          final p = pageProducts[i];
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
                             child: ListTile(
-                              leading: p.image_url != null
-                                  ? Image.network(p.image_url!,
+                              leading: p.imageUrl != null
+                                  ? Image.network(p.imageUrl!,
                                       width: 50, height: 50, fit: BoxFit.cover)
-                                  : const Icon(Icons.image_not_supported,
-                                      size: 50),
+                                  : const Icon(Icons.image_not_supported, size: 50),
                               title: Text(p.name,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold)),
-                              subtitle: Text(
-                                  'SKU: ${p.sku} • Category: ${p.category}'),
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle:
+                                  Text('SKU: ${p.sku} • Category: ${p.category}'),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -211,8 +202,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       onPressed: () => _openEditDialog(p)),
                                   IconButton(
                                       icon: const Icon(Icons.delete),
-                                      onPressed: () =>
-                                          _confirmDelete(p.id ?? '')),
+                                      onPressed: () => _confirmDelete(p.id ?? '')),
                                 ],
                               ),
                               onTap: () => _openEditDialog(p),
@@ -224,16 +214,43 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ),
                 ),
               ),
+              // Pagination controls
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Text('Page ${_page + 1} / $totalPages'),
+                  IconButton(
+                    onPressed: (_page + 1) < totalPages
+                        ? () => setState(() => _page++)
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text('Page size:'),
+                  const SizedBox(width: 8),
+                  DropdownButton<int>(
+                    value: _pageSize,
+                    items: _pageSizeOptions
+                        .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        _pageSize = v;
+                        _page = 0;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
         );
       },
     );
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
   }
 }

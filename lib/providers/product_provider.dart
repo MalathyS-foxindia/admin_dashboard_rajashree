@@ -16,6 +16,7 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
+  /// State
   bool isLoading = false;
   String? error;
 
@@ -28,24 +29,25 @@ class ProductProvider with ChangeNotifier {
   int _page = 1;
   final int _limit = 10;
   bool _hasMore = true;
-
   bool get hasMore => _hasMore;
 
-  /// Fetch products with pagination, search, category filter
+  /// ---------------------------
+  /// FETCH PRODUCTS
+  /// ---------------------------
   Future<void> fetchProducts({
     bool reset = false,
     String? search,
     String? category,
   }) async {
-    if (isLoading && !reset) return;
+    if (isLoading) return;
     if (!_hasMore && !reset) return;
 
     if (reset) {
       _page = 1;
       _items.clear();
-      _categories.clear();
       _hasMore = true;
       error = null;
+      notifyListeners();
     }
 
     isLoading = true;
@@ -63,7 +65,7 @@ class ProductProvider with ChangeNotifier {
         '$_supabaseUrl/functions/v1/get-product-with-variants',
       ).replace(queryParameters: queryParams);
 
-      debugPrint('📡 Fetching products from: $uri');
+      debugPrint('📡 Fetching products: $uri');
 
       final resp = await http.get(
         uri,
@@ -77,25 +79,23 @@ class ProductProvider with ChangeNotifier {
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
 
-        // Backend response: use "data" key for products
         final List<dynamic> jsonList = data['data'] ?? [];
-
         final newProducts = jsonList
             .map((j) => Product.fromJson(j as Map<String, dynamic>))
             .toList();
 
         if (reset) {
-          final productCategories = newProducts
-              .map((p) => p.category ?? '')
-              .where((c) => c.isNotEmpty)
-              .toSet()
-              .toList();
-          _categories.addAll(productCategories);
+          _categories
+            ..clear()
+            ..addAll(newProducts
+                .map((p) => p.category ?? '')
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList());
         }
 
         _items.addAll(newProducts);
 
-        // check if more pages exist
         final int total = data['total'] ?? 0;
         if (total > 0) {
           _hasMore = _items.length < total;
@@ -117,7 +117,6 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  /// Load next page
   Future<void> fetchMoreProducts({
     String? search,
     String? category,
@@ -126,6 +125,9 @@ class ProductProvider with ChangeNotifier {
     await fetchProducts(search: search, category: category);
   }
 
+  /// ---------------------------
+  /// CREATE
+  /// ---------------------------
   Future<bool> addProduct(Product p) async {
     isLoading = true;
     notifyListeners();
@@ -158,13 +160,18 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
+  /// ---------------------------
+  /// UPDATE
+  /// ---------------------------
   Future<bool> updateProduct(Product p) async {
     if (p.id == null) {
       error = 'Missing product id';
       return false;
     }
+
     isLoading = true;
     notifyListeners();
+
     try {
       final url = '$_supabaseUrl/functions/v1/update-product-with-variants';
       final resp = await http.post(
@@ -186,7 +193,7 @@ class ProductProvider with ChangeNotifier {
           final ids = (respData['variant_id'] as List).join(', ');
           error = 'Variants linked to existing orders: $ids';
         } else {
-          error = respData['error'] ?? 'Update failed with status 400';
+          error = respData['error'] ?? 'Update failed';
         }
         return false;
       } else {
@@ -203,9 +210,13 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
+  /// ---------------------------
+  /// DELETE
+  /// ---------------------------
   Future<bool> deleteProduct(String productId) async {
     isLoading = true;
     notifyListeners();
+
     try {
       final url =
           '$_supabaseUrl/rest/v1/master_product?product_id=eq.$productId';
@@ -238,6 +249,7 @@ class ProductProvider with ChangeNotifier {
   Future<bool> deleteVariant(String variantId) async {
     isLoading = true;
     notifyListeners();
+
     try {
       final url = '$_supabaseUrl/rest/v1/product_variants?id=eq.$variantId';
       final resp = await http.delete(
