@@ -195,7 +195,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               title: Text(p.name,
                                   style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle:
-                                  Text('SKU: ${p.sku} • Category: ${p.category} - Weight: ${p.weight ?? 'N/A'}'),
+                                  Text('SKU: ${p.sku} • Category: ${p.category}'),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [

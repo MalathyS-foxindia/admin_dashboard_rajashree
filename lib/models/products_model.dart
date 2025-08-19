@@ -51,9 +51,7 @@ class Product {
   String sku;
   String category;
   bool hasVariant;
-  double? salePrice;
-  double? regularPrice;
-  double? weight;
+  
   String? imageUrl;
   List<Variant>? variants;
 
@@ -64,9 +62,6 @@ class Product {
     required this.sku,
     required this.category,
     required this.hasVariant,
-    required this.salePrice,
-    required this.regularPrice,
-    this.weight,
     this.imageUrl,
     this.variants,
   });
@@ -95,9 +90,6 @@ class Product {
       sku: json['sku'],
       category: json['category'],
       hasVariant: json['has_variant'] ?? false,
-      salePrice: salePrice,
-      regularPrice: regularPrice,
-      weight: weight,
       imageUrl: json['image_url'],
       variants: variantsList,
     );
@@ -111,15 +103,11 @@ class Product {
       'sku': sku,
       'category': category,
       'has_variant': hasVariant,
-      'saleprice': salePrice,
-      'regularprice': regularPrice,
-      if (weight != null) 'weight': weight,
       if (imageUrl != null) 'image_url': imageUrl,
     };
 
-    if (hasVariant) {
       data['variants'] = variants?.map((v) => v.toJson()).toList() ?? [];
-    }
+  
 
     return data;
   }

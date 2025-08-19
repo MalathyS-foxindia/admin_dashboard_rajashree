@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import 'dart:convert';
 import '../models/products_model.dart';
 import '../providers/product_provider.dart';
 
@@ -37,14 +37,18 @@ class _ProductFormState extends State<ProductForm> {
     _category = TextEditingController(text: p?.category ?? '');
     _hasVariant = p?.hasVariant ?? false;
 
-    _salePrice = TextEditingController(text: p?.salePrice?.toString() ?? '');
-    _regularPrice = TextEditingController(text: p?.regularPrice?.toString() ?? '');
-    _weight = TextEditingController(text: p?.weight?.toString() ?? '');
-    print(_weight);
+   if (p != null && !p.hasVariant && p.variants != null && p.variants!.isNotEmpty) {
+  _salePrice = TextEditingController(text: p.variants!.first.salePrice.toString());
+  _regularPrice = TextEditingController(text: p.variants!.first.regularPrice.toString());
+  _weight = TextEditingController(text: p.variants!.first.weight.toString());
+} 
+    print(p?.variants);
     if ( p?.variants != null) {
       _variants = p!.variants!
           .map((v) => {
-                'variant_id': TextEditingController(text: v.id ?? ''),
+            'variant_id': TextEditingController(text: v.id != null ? v.id.toString() : ''),
+
+         
                 'variant_name': TextEditingController(text: v.name),
                 'sku': TextEditingController(text: v.sku),
                 'saleprice': TextEditingController(text: v.salePrice.toString()),
@@ -97,49 +101,67 @@ class _ProductFormState extends State<ProductForm> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    final provider = Provider.of<ProductProvider>(context, listen: false);
+  final provider = Provider.of<ProductProvider>(context, listen: false);
 
-    final product = Product(
-      id: widget.initial?.id,
+  List<Variant>? variantsToSend;
+  double? salePriceToSend;
+  double? regularPriceToSend;
+  double? weightToSend;
+
+  if (_hasVariant) {
+    variantsToSend = _variants.map((m) {
+      return Variant(
+       id: m['variant_id']!.text.isEmpty ? null : m['variant_id']!.text,
+
+        name: m['variant_name']!.text,
+        sku: m['sku']!.text,
+        salePrice: double.tryParse(m['saleprice']!.text) ?? 0.0,
+        regularPrice: double.tryParse(m['regularprice']!.text) ?? 0.0,
+        weight: double.tryParse(m['weight']!.text) ?? 0.0,
+        color: m['color']!.text,
+      );
+    }).toList();
+  } else {
+  variantsToSend = [
+    Variant(
+      id: widget.initial?.variants?.first.id, // keep the existing variant ID
       name: _name.text.trim(),
-      description: _desc.text.trim(),
       sku: _sku.text.trim(),
-      category: _category.text.trim(),
-      hasVariant: _hasVariant,
-     salePrice: _hasVariant ? null : double.tryParse(_salePrice.text) ?? widget.initial?.salePrice,
-    regularPrice: _hasVariant ? null : double.tryParse(_regularPrice.text) ?? widget.initial?.regularPrice,
-    weight: _hasVariant ? null : double.tryParse(_weight.text) ?? widget.initial?.weight,
-          variants:  _variants.map((m) {
-              return Variant(
-                id: (m['variant_id']!.text.isEmpty) ? null : m['variant_id']!.text,
-                name: m['variant_name']!.text,
-                sku: m['sku']!.text,
-                salePrice: double.tryParse(m['saleprice']!.text) ?? 0.0,
-                regularPrice: double.tryParse(m['regularprice']!.text) ?? 0.0,
-                weight: double.tryParse(m['weight']!.text) ?? 0.0,
-                color: m['color']!.text,
-              );
-            }).toList()
-          ,
-    );
-    print("Updated product:");
-    print(product);
-    bool ok = widget.initial == null
-        ? await provider.addProduct(product)
-        : await provider.updateProduct(product);
+      salePrice: double.tryParse(_salePrice.text) ?? 0.0,
+      regularPrice: double.tryParse(_regularPrice.text) ?? 0.0,
+      weight: double.tryParse(_weight.text) ?? 0.0,
+      color: '', // or m['color']!.text if you want to keep it
+    ),
+  ];
+}
+  
+  final product = Product(
+    id: widget.initial?.id,
+    name: _name.text.trim(),
+    description: _desc.text.trim(),
+    sku: _sku.text.trim(),
+    category: _category.text.trim(),
+    hasVariant: _hasVariant,
+    variants: variantsToSend,
+  );
+print("Updated product:");
+print(const JsonEncoder.withIndent('  ').convert(product.toJson())); // Use toJson() for a clear representation
 
-    if (ok) {
-      Navigator.of(context).pop(true);
-    } else {
-      final err = provider.error ?? 'Unknown error';
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
-      }
+  bool ok = widget.initial == null
+      ? await provider.addProduct(product)
+      : await provider.updateProduct(product);
+
+  if (ok) {
+    Navigator.of(context).pop(true);
+  } else {
+    final err = provider.error ?? 'Unknown error';
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
     }
   }
-
+}
   Widget _variantCard(int idx) {
     final m = _variants[idx];
     return Card(

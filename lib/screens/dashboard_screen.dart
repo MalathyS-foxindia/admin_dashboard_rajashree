@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajshree/services/dashboard_service.dart';
 
+
+
 enum DashboardMenu {
   dashboard,
   orders,
-  products,
+  products
+//  purchases
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -88,6 +91,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: const Text("Products"),
             onTap: () => setState(() => selectedMenu = DashboardMenu.products),
           ),
+          // ListTile(
+          //   selected: selectedMenu == DashboardMenu.purchases,
+          //   leading: const Icon(Icons.receipt),
+          //   title: const Text("Purchases"),
+          //   onTap: () => setState(() => selectedMenu = DashboardMenu.purchases),
+          // )
         ],
       ),
     );
@@ -102,6 +111,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const OrdersScreen();
       case DashboardMenu.products:
         return const ProductsScreen();
+      // case DashboardMenu.purchases:
+      //   return const PurchaseScreen();
     }
   }
 
