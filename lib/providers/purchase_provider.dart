@@ -1,9 +1,9 @@
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/purchase_model.dart';
-import '../models/vendor_model.dart';
 
 
 class PurchaseProvider with ChangeNotifier {
@@ -25,23 +25,31 @@ class PurchaseProvider with ChangeNotifier {
 
 
   // Fetches data from the Supabase Edge Function.
-  Future<void> _fetchPurchases() async {
-     isLoading = true;
-    notifyListeners();
-   
-     const url = 'https://gvsorguincvinuiqtooo.supabase.co/functions/v1/getpurchasedetails';
+  Future<void> fetchPurchases() async {
+  isLoading = true;
+  notifyListeners();
+
+  try {
+    const url = 'https://gvsorguincvinuiqtooo.supabase.co/functions/v1/getpurchasedetails';
     final response = await http.get(Uri.parse(url), headers: {
       'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}',
     });
 
-  if (response.statusCode == 200) {
+    if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (data['purchases'] != null) {
-        _purchases = List<Purchase>.from(data['purchases'].map((e) => Purchase.fromJson(e)));
+        _purchases = List<Purchase>.from(
+          data['purchases'].map((e) => Purchase.fromJson(e)),
+        );
       }
     } else {
-      debugPrint('Error fetching purchases: ${response.body}');
+      error = 'Error fetching purchases: ${response.body}';
+      debugPrint(error);
     }
+  } finally {
+    isLoading = false;
+    notifyListeners();
+  }
+}
 
-   }
   }

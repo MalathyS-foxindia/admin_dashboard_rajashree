@@ -1,6 +1,7 @@
 // Import the SupabaseService from its new location
 import 'package:admin_dashboard_rajshree/screens/orders_screen.dart';
 import 'package:admin_dashboard_rajshree/screens/products_screen.dart';
+import 'package:admin_dashboard_rajshree/screens/purchase_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajshree/services/dashboard_service.dart';
@@ -10,8 +11,8 @@ import 'package:admin_dashboard_rajshree/services/dashboard_service.dart';
 enum DashboardMenu {
   dashboard,
   orders,
-  products
-//  purchases
+  products,
+  purchases
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -91,12 +92,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: const Text("Products"),
             onTap: () => setState(() => selectedMenu = DashboardMenu.products),
           ),
-          // ListTile(
-          //   selected: selectedMenu == DashboardMenu.purchases,
-          //   leading: const Icon(Icons.receipt),
-          //   title: const Text("Purchases"),
-          //   onTap: () => setState(() => selectedMenu = DashboardMenu.purchases),
-          // )
+          ListTile(
+            selected: selectedMenu == DashboardMenu.purchases,
+            leading: const Icon(Icons.receipt),
+            title: const Text("Purchases"),
+            onTap: () => setState(() => selectedMenu = DashboardMenu.purchases),
+          )
         ],
       ),
     );
@@ -111,8 +112,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const OrdersScreen();
       case DashboardMenu.products:
         return const ProductsScreen();
-      // case DashboardMenu.purchases:
-      //   return const PurchaseScreen();
+       case DashboardMenu.purchases:
+         return const PurchasePage();
     }
   }
 

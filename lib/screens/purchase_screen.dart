@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:admin_dashboard_rajshree/models/purchase_model.dart';
+import 'package:provider/provider.dart';
 import 'package:admin_dashboard_rajshree/providers/purchase_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:googleapis/connectors/v1.dart' hide Provider;
 import 'package:http/http.dart' as http;
 // The main widget for displaying the purchase report.
 class PurchasePage extends StatefulWidget {
@@ -31,7 +33,9 @@ class _PurchasePageState extends State<PurchasePage> {
   @override
   void initState() {
     super.initState();
-    _fetchPurchases();
+   WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<PurchaseProvider>(context, listen: false).fetchPurchases();
+    });
   }
 
   @override
@@ -46,7 +50,7 @@ class _PurchasePageState extends State<PurchasePage> {
     setState(() {
       _filteredPurchases = _allPurchases.where((purchase) {
         final lowerCaseQuery = _searchQuery.toLowerCase();
-        return purchase.vendor.name.toLowerCase().contains(lowerCaseQuery) ||
+        return purchase.vendordetails.name.toLowerCase().contains(lowerCaseQuery) ||
                purchase.purchaseId.toLowerCase().contains(lowerCaseQuery);
       }).toList();
       _currentPage = 0; // Reset to the first page after filtering.
@@ -71,9 +75,9 @@ class _PurchasePageState extends State<PurchasePage> {
     return _paginatedPurchases.map((purchase) {
       return DataRow(cells: [
         DataCell(Text(purchase.purchaseId)),
-        DataCell(Text(purchase.vendor.name)),
+        DataCell(Text(purchase.vendordetails.name)),
         DataCell(Text('\$${purchase.totalAmount.toStringAsFixed(2)}')),
-        DataCell(Text('${purchase.itemCount}')),
+        DataCell(Text('${purchase.items.length} items')),
       ]);
     }).toList();
   }

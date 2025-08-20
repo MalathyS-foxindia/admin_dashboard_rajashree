@@ -1,5 +1,6 @@
 // lib/main.dart
 
+import 'package:admin_dashboard_rajshree/providers/purchase_provider.dart';
 import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
         // This is where you create and provide your ProductProvider
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider(Supabase.instance.client)),
+        ChangeNotifierProvider(create: (_) => PurchaseProvider()),
         // Add any other providers your app needs here
       ],
       child: MaterialApp(

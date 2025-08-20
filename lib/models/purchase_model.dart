@@ -28,7 +28,7 @@ class PurchaseItems {
 class Purchase {
   final String purchaseId;
   final Vendor vendordetails;
-  final String? vendorId;
+  final int vendorId;
   final double totalAmount;
   final List<PurchaseItems> items;
 
@@ -37,7 +37,7 @@ class Purchase {
     required this.vendordetails,
     required this.totalAmount,
     required this.items,
-    this.vendorId,
+    required this.vendorId,
   });
 
   factory Purchase.fromJson(Map<String, dynamic> json) {
@@ -59,7 +59,7 @@ class Purchase {
       totalAmount:
           json['amount'] is num ? (json['amount'] as num).toDouble() : 0.0,
       items: purchaseItems,
-      vendorId: json['vendor_id'] as String?,
+      vendorId: json['vendor_id'],
     );
   }
 }
