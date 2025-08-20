@@ -187,29 +187,62 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           final p = pageProducts[i];
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12),
-                            child: ListTile(
-                              leading: p.imageUrl != null
-                                  ? Image.network(p.imageUrl!,
-                                      width: 50, height: 50, fit: BoxFit.cover)
-                                  : const Icon(Icons.image_not_supported, size: 50),
-                              title: Text(p.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle:
-                                  Text('SKU: ${p.sku} • Category: ${p.category}'),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () => _openEditDialog(p)),
-                                  IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () => _confirmDelete(p.id ?? '')),
-                                ],
-                              ),
-                              onTap: () => _openEditDialog(p),
-                            ),
-                          );
+            child: ExpansionTile(
+  leading: p.imageUrl != null
+      ? Image.network(p.imageUrl!,
+          width: 50, height: 50, fit: BoxFit.cover)
+      : const Icon(Icons.image_not_supported, size: 50),
+  title: Text(
+    p.name,
+    style: const TextStyle(fontWeight: FontWeight.bold),
+  ),
+  subtitle: Text('SKU: ${p.sku} • Category: ${p.category}'),
+  trailing: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      IconButton(
+        icon: const Icon(Icons.edit),
+        onPressed: () => _openEditDialog(p),
+      ),
+      IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () => _confirmDelete(p.id ?? ''),
+      ),
+    ],
+  ),
+  children: [
+    if (p.variants != null && p.variants!.isNotEmpty)
+      ...p.variants!.map((variant) {
+        return Padding(
+          padding: const EdgeInsets.only(left: 20.0, right: 8.0, bottom: 8.0),
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.circle, size: 12),
+            title: Text(variant.name),
+            subtitle: RichText(
+     text: TextSpan(
+     style: DefaultTextStyle.of(context).style.copyWith(fontSize: 12),
+     children: [
+      TextSpan(text: 'SKU: ${variant.sku} • '),
+      TextSpan(text: 'Stock: ${variant.stock} • '),
+      TextSpan(
+        text: 'Regular Price: ${variant.regularPrice} • ',
+        style: const TextStyle(
+          decoration: TextDecoration.lineThrough, // 👈 strikethrough
+          color: Colors.grey,
+        ),
+      ),
+      TextSpan(text: 'Sale Price: ${variant.salePrice} • '),
+      TextSpan(text: 'Weight: ${variant.weight}'),
+    ],
+  ),
+)
+          ),
+        );
+      }).toList(),
+  ],
+),
+              );
                         },
                       );
                     },

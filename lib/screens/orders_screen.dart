@@ -1,6 +1,8 @@
 import 'package:admin_dashboard_rajshree/models/order_model.dart';
 import 'package:admin_dashboard_rajshree/providers/order_provider.dart';
 import 'package:admin_dashboard_rajshree/services/invoice_service.dart';
+import 'package:admin_dashboard_rajshree/services/excel_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -20,7 +22,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
   int _page = 0;
   int _pageSize = 10;
   final List<int> _pageSizeOptions = [5, 10, 20, 50];
+
+  // State flags
   bool _isGenerating = false;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -44,8 +49,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
           order.orderId.toLowerCase().contains(searchQuery);
     }).toList();
 
-    // optionally sort (e.g. newest first) - depends on your Order model
-    // filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return filtered;
   }
 
@@ -83,6 +86,139 @@ class _OrdersScreenState extends State<OrdersScreen> {
     });
   }
 
+  Future<void> _exportOrdersToExcel() async {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one order to export')),
+      );
+      return;
+    }
+
+    setState(() => _isExporting = true);
+
+    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    final selectedOrders = orderProvider.orders.where(
+      (order) => _selectedOrderIds.contains(order.orderId),
+    ).toList();
+
+    final success = await ExcelService.exportToExcel(selectedOrders);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success
+              ? 'Orders exported to Excel!'
+              : 'Failed to export orders.'),
+        ),
+      );
+    }
+
+    setState(() => _isExporting = false);
+  }
+
+  Future<void> _generateInvoices(BuildContext context) async {
+    if (_selectedOrderIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one order')),
+      );
+      return;
+    }
+
+    setState(() => _isGenerating = true);
+
+    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    bool allSuccess = true;
+
+    for (String orderId in _selectedOrderIds) {
+      final jsonData = await orderProvider.fetchOrderJson(orderId);
+
+      if (jsonData == null) {
+        allSuccess = false;
+        if (kDebugMode) {
+          print("❌ Order $orderId: No JSON data returned");
+        }
+        continue;
+      }
+
+      if (kDebugMode) {
+        print('Generating invoice for order: $orderId');
+      }
+
+      final invoiceData =
+          await InvoiceService.generateInvoiceFromJson(jsonData);
+
+      final success =
+          await orderProvider.uploadInvoiceToSupabaseStorage(invoiceData);
+
+      if (!success) {
+        allSuccess = false;
+        if (kDebugMode) {
+          print("❌ Order $orderId: Failed to upload invoice PDF");
+        }
+      }
+    }
+
+    setState(() => _isGenerating = false);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(allSuccess
+              ? 'Invoices generated successfully!'
+              : 'Some invoices failed.'),
+        ),
+      );
+    }
+
+    setState(() {
+      _selectedOrderIds.clear();
+      _selectAllOnPage = false;
+    });
+  }
+
+  Future<void> _showOrderDetails(BuildContext context, Order order) async {
+    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    final items = await orderProvider.fetchOrderItems(order.orderId.toString());
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        builder: (_, controller) => Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ListView(
+            controller: controller,
+            children: [
+              Text("Order ID: ${order.orderId}", style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text("Customer: ${order.customerName}"),
+              Text("Mobile: ${order.mobileNumber}"),
+              Text("Address: ${order.address}, ${order.state}"),
+              Text("Amount: ₹${order.totalAmount.toStringAsFixed(2)} (Shipping: ₹${order.shippingAmount})"),
+              Text("Source: ${order.source} | Guest: ${order.isGuest ? 'Yes' : 'No'}"),
+              Text("Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
+              if (order.orderNote.isNotEmpty) Text("Note: ${order.orderNote}"),
+              const Divider(),
+              const Text("Items", style: TextStyle(fontWeight: FontWeight.bold)),
+              ...items.map((item) {
+                final isCombo = item.isCombo;
+                final variantName = item.productVariants?['variant_name'] ?? 'N/A';
+                final variantPrice = item.productVariants?['saleprice']?.toString() ?? '0';
+
+                return ListTile(
+                  leading: const Icon(Icons.shopping_cart),
+                  title: Text("$variantName - ₹$variantPrice"),
+                  subtitle: Text("Qty: ${item.quantity} | Combo: ${isCombo ? 'Yes' : 'No'}"),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final orderProvider = Provider.of<OrderProvider>(context);
@@ -91,7 +227,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final totalPages =
         (allOrders.length / _pageSize).ceil().clamp(1, double.infinity).toInt();
 
-    // keep select all synced when page changes
     final isAllSelectedOnPage =
         pageOrders.isNotEmpty && pageOrders.every((o) => _selectedOrderIds.contains(o.orderId));
     if (isAllSelectedOnPage != _selectAllOnPage) {
@@ -105,7 +240,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(children: [
-                // Top controls row: search + generate button + page size
+                // Top controls row
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -147,6 +282,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       label: const Text('Generate Invoice'),
                     ),
                     const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: (_selectedOrderIds.isNotEmpty && !_isExporting)
+                          ? _exportOrdersToExcel
+                          : null,
+                      icon: _isExporting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.file_download),
+                      label: Text('Export Excel (${_selectedOrderIds.length})'),
+                    ),
                     const Spacer(),
                     const Text('Page size:'),
                     const SizedBox(width: 8),
@@ -159,14 +306,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         if (v == null) return;
                         setState(() {
                           _pageSize = v;
-                          _page = 0; // reset page
+                          _page = 0;
                         });
                       },
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                // List header with Select all on page
                 Row(
                   children: [
                     Checkbox(
@@ -181,7 +327,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Orders list (paged)
                 Expanded(
                   child: ListView.builder(
                     itemCount: pageOrders.length,
@@ -207,7 +352,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     },
                   ),
                 ),
-                // Pagination controls
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -234,101 +378,5 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ]),
             ),
     );
-  }
-
-  Future<void> _showOrderDetails(BuildContext context, Order order) async {
-    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
-    final items = await orderProvider.fetchOrderItems(order.orderId.toString());
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        builder: (_, controller) => Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ListView(
-            controller: controller,
-            children: [
-              Text("Order ID: ${order.orderId}", style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text("Customer: ${order.customerName}"),
-              Text("Mobile: ${order.mobileNumber}"),
-              Text("Address: ${order.address}, ${order.state}"),
-              Text("Amount: ₹${order.totalAmount.toStringAsFixed(2)} (Shipping: ₹${order.shippingAmount})"),
-              Text("Source: ${order.source} | Guest: ${order.isGuest ? 'Yes' : 'No'}"),
-              Text("Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
-              if (order.orderNote.isNotEmpty) Text("Note: ${order.orderNote}"),
-              const Divider(),
-              const Text("Items", style: TextStyle(fontWeight: FontWeight.bold)),
-              ...items.map((item) {
-                final isCombo = item.isCombo;
-                final variantName = item.productVariants?['variant_name'] ?? 'N/A';
-                final variantPrice = item.productVariants?['saleprice']?.toString() ?? '0';
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.shopping_cart),
-                      title: Text("$variantName - ₹$variantPrice"),
-                      subtitle: Text("Qty: ${item.quantity} | Combo: ${isCombo ? 'Yes' : 'No'}"),
-                    ),
-                  ],
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _generateInvoices(BuildContext context) async {
-    if (_selectedOrderIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one order')),
-      );
-      return;
-    }
-
-    setState(() => _isGenerating = true);
-
-    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
-    bool allSuccess = true;
-
-    for (String orderId in _selectedOrderIds) {
-      final jsonData = await orderProvider.fetchOrderJson(orderId);
-
-      if (jsonData == null) {
-        allSuccess = false;
-        print("❌ Order $orderId: No JSON data returned");
-      }
-      print('Generating invoice for order: $orderId');
-      final invoiceData = await InvoiceService.generateInvoiceFromJson(jsonData!);
-      print('Generated invoice data: $invoiceData');
-      final success = await orderProvider.uploadInvoiceToSupabaseStorage(invoiceData);
-
-      if (!success) 
-      {
-        allSuccess = false;
-        print("❌ Order $orderId: Failed to upload invoice PDF");
-      }
-    }
-
-    setState(() => _isGenerating = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(allSuccess
-            ? 'Invoices generated successfully!'
-            : 'Some invoices failed.'),
-      ),
-    );
-
-    setState(() {
-      _selectedOrderIds.clear();
-      _selectAllOnPage = false;
-    });
   }
 }

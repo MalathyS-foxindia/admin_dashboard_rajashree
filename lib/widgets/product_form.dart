@@ -114,13 +114,14 @@ class _ProductFormState extends State<ProductForm> {
     variantsToSend = _variants.map((m) {
       return Variant(
        id: m['variant_id']!.text.isEmpty ? null : m['variant_id']!.text,
-
         name: m['variant_name']!.text,
         sku: m['sku']!.text,
         salePrice: double.tryParse(m['saleprice']!.text) ?? 0.0,
         regularPrice: double.tryParse(m['regularprice']!.text) ?? 0.0,
         weight: double.tryParse(m['weight']!.text) ?? 0.0,
         color: m['color']!.text,
+        length: m['length']!.text.isEmpty ? null : double.tryParse(m['length']!.text),
+        size: m['size']!.text.isEmpty ? null : double.tryParse(m['size']!.text)
       );
     }).toList();
   } else {
@@ -133,6 +134,8 @@ class _ProductFormState extends State<ProductForm> {
       regularPrice: double.tryParse(_regularPrice.text) ?? 0.0,
       weight: double.tryParse(_weight.text) ?? 0.0,
       color: '', // or m['color']!.text if you want to keep it
+      length: null, // no length for non-variant products
+      size: null, // no size for non-variant products
     ),
   ];
 }
@@ -203,6 +206,8 @@ print(const JsonEncoder.withIndent('  ').convert(product.toJson())); // Use toJs
             ]),
             TextFormField(controller: m['weight'], keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight')),
             TextFormField(controller: m['color'], decoration: const InputDecoration(labelText: 'Color')),
+            TextFormField(controller: m['length'], decoration: const InputDecoration(labelText: 'Length')),
+            TextFormField(controller: m['size'], decoration: const InputDecoration(labelText: 'Size')),
           ],
         ),
       ),

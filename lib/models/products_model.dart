@@ -8,6 +8,9 @@ class Variant {
   double regularPrice;
   double weight;
   String color;
+  double? stock;
+  double? length;
+  double? size;
   String? imageUrl;
 
   Variant({
@@ -19,6 +22,9 @@ class Variant {
     required this.weight,
     required this.color,
     this.imageUrl,
+    this.length,
+    this.size,
+    this.stock,
   });
 
   factory Variant.fromJson(Map<String, dynamic> json) => Variant(
@@ -30,6 +36,9 @@ class Variant {
         weight: (json['weight'] ?? 0).toDouble(),
         color: json['color'] ?? '',
         imageUrl: json['image_url'],
+        length: json['length'] != null ? (json['length'] as num).toDouble() : null,
+        size: json['size'] != null ? (json['size'] as num).toDouble() : null,
+        stock: (json['stock'] ?? 0).toDouble()
       );
 
   Map<String, dynamic> toJson() => {
@@ -40,6 +49,9 @@ class Variant {
         'regularprice': regularPrice,
         'weight': weight,
         'color': color,
+        if (stock != null) 'stock': stock,
+        if (length != null) 'length': length, 
+        if (size != null) 'size': size,
         if (imageUrl != null) 'image_url': imageUrl,
       };
 }
@@ -52,6 +64,7 @@ class Product {
   String category;
   bool hasVariant;
   
+
   String? imageUrl;
   List<Variant>? variants;
 
@@ -60,8 +73,9 @@ class Product {
     required this.name,
     required this.description,
     required this.sku,
-    required this.category,
+   required this.category,
     required this.hasVariant,
+    
     this.imageUrl,
     this.variants,
   });
