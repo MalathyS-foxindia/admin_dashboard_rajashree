@@ -45,7 +45,7 @@ class Purchase {
     final vendorData = json['vendor_details'] as Map<String, dynamic>?;
     final vendor = vendorData != null
         ? Vendor.fromJson(vendorData)
-        : Vendor(name: 'N/A', vendor_id: '', address: '', contactNumber: '', gst: '');
+        : Vendor(name: 'N/A', vendor_id: 0, address: '', contactNumber: '', gst: '');
 
     // Parse purchase items safely
     final purchaseItems = (json['purchase_items'] as List<dynamic>?)

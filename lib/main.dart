@@ -1,6 +1,7 @@
 // lib/main.dart
 
 import 'package:admin_dashboard_rajshree/providers/purchase_provider.dart';
+import 'package:admin_dashboard_rajshree/providers/shipment_provider.dart';
 import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -39,10 +40,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider(Supabase.instance.client)),
         ChangeNotifierProvider(create: (_) => PurchaseProvider()),
+        ChangeNotifierProvider( create: (_) => ShipmentProvider())
         // Add any other providers your app needs here
       ],
       child: MaterialApp(
-        title: 'Rajshree Fashions Admin',
+        title: 'Rajashree Fashions Admin',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: primaryBlue),

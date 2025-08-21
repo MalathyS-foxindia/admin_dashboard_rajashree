@@ -1,5 +1,5 @@
 class Vendor {
-  final String vendor_id;
+  final int vendor_id;
   final String name;
   final String address;
   final String contactNumber;
@@ -18,6 +18,6 @@ class Vendor {
       name: json['name'] as String? ?? 'N/A',
       address: json['address'] as String? ?? 'N/A',
       contactNumber: json['contact_number'] as String? ?? 'N/A',
-      gst: json['gst'] as String? ?? 'N/A', vendor_id: json['vendor_id'] as String? ?? 'N/A',);
+      gst: json['gst'] as String? ?? 'N/A', vendor_id: json['vendor_id']);
   }
 }

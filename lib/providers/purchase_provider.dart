@@ -1,10 +1,8 @@
 import 'dart:convert';
-import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/purchase_model.dart';
-
 
 class PurchaseProvider with ChangeNotifier {
   final String _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
@@ -16,40 +14,49 @@ class PurchaseProvider with ChangeNotifier {
       debugPrint('⚠️ Supabase URL or keys are missing in .env');
     }
   }
-   List<Purchase> _purchases = [];
 
-  List<Purchase> get purchases => _purchases;
   /// State
+  List<Purchase> _purchases = [];
+  List<Purchase> get purchases => _purchases;
+
   bool isLoading = false;
-  String? error;
+  String errorMessage = '';
 
-
-  // Fetches data from the Supabase Edge Function.
+  /// Fetches purchase data from the Supabase Edge Function
   Future<void> fetchPurchases() async {
-  isLoading = true;
-  notifyListeners();
-
-  try {
-    const url = 'https://gvsorguincvinuiqtooo.supabase.co/functions/v1/getpurchasedetails';
-    final response = await http.get(Uri.parse(url), headers: {
-      'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}',
-    });
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['purchases'] != null) {
-        _purchases = List<Purchase>.from(
-          data['purchases'].map((e) => Purchase.fromJson(e)),
-        );
-      }
-    } else {
-      error = 'Error fetching purchases: ${response.body}';
-      debugPrint(error);
-    }
-  } finally {
-    isLoading = false;
+    isLoading = true;
+    errorMessage = '';
     notifyListeners();
+
+    try {
+      const url =
+          'https://gvsorguincvinuiqtooo.supabase.co/functions/v1/getpurchasedetails';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['purchases'] != null) {
+          _purchases = List<Purchase>.from(
+            data['purchases'].map((e) => Purchase.fromJson(e)),
+          );
+        }
+      } else {
+        errorMessage = 'Error fetching purchases: ${response.body}';
+        debugPrint(errorMessage);
+      }
+    } catch (e) {
+      errorMessage = 'Unexpected error: $e';
+      debugPrint(errorMessage);
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 }
-
-  }
