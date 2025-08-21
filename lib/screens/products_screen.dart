@@ -1,4 +1,3 @@
-// lib/screens/products_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -14,11 +13,35 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
+  String _searchQuery = '';
+  String? _selectedCategory;
+
+  // Pagination state
+  int _page = 0;
+  int _pageSize = 10;
+  final List<int> _pageSizeOptions = [5, 10, 20, 50];
+
   @override
   void initState() {
     super.initState();
-    // fetch on load
-    Future.microtask(() => Provider.of<ProductProvider>(context, listen: false).fetchProducts());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ProductProvider>(context, listen: false).fetchProducts();
+    });
+  }
+
+  List<Product> _applyFilter(List<Product> all) {
+    return all.where((p) {
+      return p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (p.sku.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+          (p.category.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+    }).toList();
+  }
+
+  List<Product> _pagedProducts(List<Product> filtered) {
+    final start = _page * _pageSize;
+    if (start >= filtered.length) return [];
+    final end = (_page + 1) * _pageSize;
+    return filtered.sublist(start, end.clamp(0, filtered.length));
   }
 
   Future<void> _openAddDialog() async {
@@ -26,9 +49,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (_) => const ProductForm(),
     );
-    if (ok == true) {
-      // optionally show toast
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product created')));
+    if (ok == true && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Product created')));
+      Provider.of<ProductProvider>(context, listen: false).fetchProducts(reset: true);
     }
   }
 
@@ -37,8 +61,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (_) => ProductForm(initial: p),
     );
-    if (ok == true) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product updated')));
+
+   
+    if (ok == true && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Product updated')));
+      Provider.of<ProductProvider>(context, listen: false).fetchProducts(reset: true);
     }
   }
 
@@ -49,8 +77,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
         title: const Text('Delete product'),
         content: const Text('Are you sure you want to delete this product?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Delete')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -59,133 +91,201 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final provider = Provider.of<ProductProvider>(context, listen: false);
       final ok = await provider.deleteProduct(productId);
       if (ok) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted')));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Deleted')));
+        provider.fetchProducts(reset: true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.error ?? 'Delete failed')));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(provider.error ?? 'Delete failed')));
       }
     }
   }
 
+  Widget _buildFilterBar(ProductProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        children: [
+          // Search box
+          Expanded(
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search products...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (val) {
+                setState(() {
+                  _searchQuery = val;
+                  _page = 0;
+                });
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Category filter
+          DropdownButton<String?>(
+            hint: const Text('Category'),
+            value: _selectedCategory,
+            items: [
+              const DropdownMenuItem<String?>(value: null, child: Text('All')),
+              ...provider.categories
+                  .map((cat) => DropdownMenuItem<String?>(value: cat, child: Text(cat))),
+            ],
+            onChanged: (val) {
+              setState(() {
+                _selectedCategory = val;
+                _page = 0;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<ProductProvider>(context);
-    final products = provider.items;
+    return Consumer<ProductProvider>(
+      builder: (context, provider, _) {
+        final filtered = _applyFilter(provider.items
+            .where((p) => _selectedCategory == null || p.category == _selectedCategory)
+            .toList());
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Products')),
-      floatingActionButton: FloatingActionButton(onPressed: _openAddDialog, child: const Icon(Icons.add)),
-      body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: () => provider.fetchProducts(),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: products.length,
-                itemBuilder: (ctx, i) {
-                  final p = products[i];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ExpansionTile(
-                      key: ValueKey(p.id),
-                      title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('SKU: ${p.sku} • Category: ${p.category}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(icon: const Icon(Icons.edit), onPressed: () => _openEditDialog(p)),
-                          IconButton(icon: const Icon(Icons.delete), onPressed: () => _confirmDelete(p.id ?? '')),
-                        ],
-                      ),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Description: ${p.description}'),
-                              const SizedBox(height: 8),
-                              if (!p.hasVariant) ...[
-                                Text('Sale price: ${p.salePrice ?? 0}'),
-                                Text('Regular price: ${p.regularPrice ?? 0}'),
-                                Text('Weight: ${p.weight ?? 0}'),
-                              ] else ...[
-                                Text('Variants (${p.variants?.length ?? 0})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 8),
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: DataTable(
-                                    columns: const [
-                                      DataColumn(label: Text('Variant name')),
-                                      DataColumn(label: Text('SKU')),
-                                      DataColumn(label: Text('Sale')),
-                                      DataColumn(label: Text('Regular')),
-                                      DataColumn(label: Text('Weight')),
-                                      DataColumn(label: Text('Color')),
-                                    ],
-                                    rows: p.variants!.map((v) {
-                                      return DataRow(cells: [
-                                        DataCell(Text(v.name)),
-                                        DataCell(Text(v.sku)),
-                                        DataCell(Text(v.salePrice.toString())),
-                                        DataCell(Text(v.regularPrice.toString())),
-                                        DataCell(Text(v.weight.toString())),
-                                        DataCell(Row(
-                                          children: [
-                                            Text(v.color),
-                                           IconButton(
-                                                icon: const Icon(Icons.delete, color: Colors.red),
-                                                onPressed: () async {
-                                                  final confirmed = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (ctx) => AlertDialog(
-                                                      title: const Text('Delete variant'),
-                                                      content: const Text('Are you sure you want to delete this variant?'),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () => Navigator.of(ctx).pop(false),
-                                                          child: const Text('Cancel'),
-                                                        ),
-                                                        ElevatedButton(
-                                                          onPressed: () => Navigator.of(ctx).pop(true),
-                                                          child: const Text('Delete'),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
+        final pageProducts = _pagedProducts(filtered);
+        final totalPages =
+            (filtered.length / _pageSize).ceil().clamp(1, double.infinity).toInt();
 
-                                                  if (confirmed != true) return;
+        return Scaffold(
+          appBar: AppBar(title: const Text('Products')),
+          floatingActionButton: FloatingActionButton(
+              onPressed: _openAddDialog, child: const Icon(Icons.add)),
+          body: Column(
+            children: [
+              _buildFilterBar(provider),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => provider.fetchProducts(reset: true),
+                  child: Builder(
+                    builder: (ctx) {
+                      if (provider.isLoading && provider.items.isEmpty) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (provider.error != null && provider.items.isEmpty) {
+                        return Center(child: Text('Error: ${provider.error}'));
+                      }
+                      if (filtered.isEmpty) {
+                        return const Center(child: Text('No products found'));
+                      }
 
-                                                  final prov = Provider.of<ProductProvider>(context, listen: false);
-                                                  final ok = await prov.deleteVariant(v.id ?? '');
-
-                                                  if (ok) {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      const SnackBar(content: Text('Variant deleted')),
-                                                    );
-                                                    await prov.fetchProducts(); // refresh list
-                                                  } else {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(content: Text(prov.error ?? 'Failed')),
-                                                    );
-                                                  }
-                                                },
-                                              )
-                                          ],
-                                        )),
-                                      ]);
-                                    }).toList(),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: pageProducts.length,
+                        itemBuilder: (ctx, i) {
+                          final p = pageProducts[i];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+            child: ExpansionTile(
+  leading: p.imageUrl != null
+      ? Image.network(p.imageUrl!,
+          width: 50, height: 50, fit: BoxFit.cover)
+      : const Icon(Icons.image_not_supported, size: 50),
+  title: Text(
+    p.name,
+    style: const TextStyle(fontWeight: FontWeight.bold),
+  ),
+  subtitle: Text('SKU: ${p.sku} • Category: ${p.category}'),
+  trailing: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      IconButton(
+        icon: const Icon(Icons.edit),
+        onPressed: () => _openEditDialog(p),
+      ),
+      IconButton(
+        icon: const Icon(Icons.delete),
+        onPressed: () => _confirmDelete(p.id ?? ''),
+      ),
+    ],
+  ),
+  children: [
+    if (p.variants != null && p.variants!.isNotEmpty)
+      ...p.variants!.map((variant) {
+        return Padding(
+          padding: const EdgeInsets.only(left: 20.0, right: 8.0, bottom: 8.0),
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.circle, size: 12),
+            title: Text(variant.name),
+            subtitle: RichText(
+     text: TextSpan(
+     style: DefaultTextStyle.of(context).style.copyWith(fontSize: 12),
+     children: [
+      TextSpan(text: 'SKU: ${variant.sku} • '),
+      TextSpan(text: 'Stock: ${variant.stock} • '),
+      TextSpan(
+        text: 'Regular Price: ${variant.regularPrice} • ',
+        style: const TextStyle(
+          decoration: TextDecoration.lineThrough, // 👈 strikethrough
+          color: Colors.grey,
+        ),
+      ),
+      TextSpan(text: 'Sale Price: ${variant.salePrice} • '),
+      TextSpan(text: 'Weight: ${variant.weight}'),
+    ],
+  ),
+)
+          ),
+        );
+      }).toList(),
+  ],
+),
+              );
+                        },
+                      );
+                    },
+                  ),
+                ),
               ),
-            ),
+              // Pagination controls
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Text('Page ${_page + 1} / $totalPages'),
+                  IconButton(
+                    onPressed: (_page + 1) < totalPages
+                        ? () => setState(() => _page++)
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text('Page size:'),
+                  const SizedBox(width: 8),
+                  DropdownButton<int>(
+                    value: _pageSize,
+                    items: _pageSizeOptions
+                        .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        _pageSize = v;
+                        _page = 0;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
