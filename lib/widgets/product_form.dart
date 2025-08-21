@@ -36,29 +36,40 @@ class _ProductFormState extends State<ProductForm> {
     _sku = TextEditingController(text: p?.sku ?? '');
     _category = TextEditingController(text: p?.category ?? '');
     _hasVariant = p?.hasVariant ?? false;
-
-   if (p != null && !p.hasVariant && p.variants != null && p.variants!.isNotEmpty) {
-  _salePrice = TextEditingController(text: p.variants!.first.salePrice.toString());
-  _regularPrice = TextEditingController(text: p.variants!.first.regularPrice.toString());
-  _weight = TextEditingController(text: p.variants!.first.weight.toString());
-} 
+    _salePrice = TextEditingController(
+      text: (p != null && !p.hasVariant && p.variants?.isNotEmpty == true)
+          ? p.variants!.first.salePrice.toString()
+          : '');
+  _regularPrice = TextEditingController(
+      text: (p != null && !p.hasVariant && p.variants?.isNotEmpty == true)
+          ? p.variants!.first.regularPrice.toString()
+          : '');
+  _weight = TextEditingController(
+      text: (p != null && !p.hasVariant && p.variants?.isNotEmpty == true)
+          ? p.variants!.first.weight.toString()
+          : '');
     print(p?.variants);
-    if ( p?.variants != null) {
-      _variants = p!.variants!
-          .map((v) => {
-            'variant_id': TextEditingController(text: v.id != null ? v.id.toString() : ''),
-
-         
-                'variant_name': TextEditingController(text: v.name),
-                'sku': TextEditingController(text: v.sku),
-                'saleprice': TextEditingController(text: v.salePrice.toString()),
-                'regularprice': TextEditingController(text: v.regularPrice.toString()),
-                'weight': TextEditingController(text: v.weight.toString()),
-                'color': TextEditingController(text: v.color),
-              })
-          .toList();
-    }
+    if (p?.variants != null && p!.hasVariant) {
+    _variants = p.variants!
+        .map((v) => {
+              'variant_id':
+                  TextEditingController(text: v.id != null ? v.id.toString() : ''),
+              'variant_name': TextEditingController(text: v.name),
+              'sku': TextEditingController(text: v.sku),
+              'saleprice':
+                  TextEditingController(text: v.salePrice.toString()),
+              'regularprice':
+                  TextEditingController(text: v.regularPrice.toString()),
+              'weight': TextEditingController(text: v.weight.toString()),
+              'color': TextEditingController(text: v.color),
+              'length': TextEditingController(
+                  text: v.length != null ? v.length.toString() : ''),
+              'size': TextEditingController(
+                  text: v.size != null ? v.size.toString() : ''),
+            })
+        .toList();
   }
+}
 
   @override
   void dispose() {
@@ -87,6 +98,8 @@ class _ProductFormState extends State<ProductForm> {
         'regularprice': TextEditingController(),
         'weight': TextEditingController(),
         'color': TextEditingController(),
+        'length': TextEditingController(),
+      'size': TextEditingController(),
       });
     });
   }
@@ -238,7 +251,7 @@ print(const JsonEncoder.withIndent('  ').convert(product.toJson())); // Use toJs
                     return TextFormField(controller: _category, decoration: const InputDecoration(labelText: 'Category'));
                   }
                   return DropdownButtonFormField<String>(
-                    value: _category.text.isNotEmpty ? _category.text : null,
+                    initialValue: _category.text.isNotEmpty ? _category.text : null,
                     items: cats.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                     onChanged: (val) {
                       if (val != null) _category.text = val;
