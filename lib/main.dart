@@ -15,7 +15,7 @@ import 'providers/product_provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: 'assets/.env'); // Load environment variables
-    // ✅ Initialize Supabase before creating any providers
+  // ✅ Initialize Supabase before creating any providers
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,

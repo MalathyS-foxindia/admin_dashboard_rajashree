@@ -29,18 +29,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final SupabaseService _supabaseService = SupabaseService();
   DateTime _selectedDate = DateTime.now(); // State variable for the date
   Future<void> _pickDate(BuildContext context) async {
-  final DateTime? picked = await showDatePicker(
-    context: context,
-    initialDate: _selectedDate,
-    firstDate: DateTime(2000),
-    lastDate: DateTime.now(),
-  );
-  if (picked != null && picked != _selectedDate) {
-    setState(() {
-      _selectedDate = picked;
-    });
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
   }
-}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,13 +57,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(width: 12),
             const Text(
-              "Rajshree Admin",
+              "Rajshree Fashions",
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ],
         ),
-      
-      actions: [
+
+        actions: [
           PopupMenuButton<String>(
             icon: const CircleAvatar(
               radius: 18,
@@ -85,7 +85,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ],
-      ),     
+      ),
       body: Row(
         children: [
           _buildSideMenu(),
@@ -99,7 +99,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSideMenu() {
     return Container(
       width: 220,
-        decoration: BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Colors.deepPurple.shade800, Colors.deepPurple.shade600],
           begin: Alignment.topCenter,
@@ -108,7 +108,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: ListView(
         children: [
-         _buildMenuItem(DashboardMenu.dashboard, Icons.dashboard, "Dashboard"),
+          _buildMenuItem(DashboardMenu.dashboard, Icons.dashboard, "Dashboard"),
           _buildMenuItem(DashboardMenu.orders, Icons.shopping_cart, "Orders"),
           _buildMenuItem(DashboardMenu.products, Icons.store, "Products"),
           _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase"),
@@ -143,8 +143,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const OrdersScreen();
       case DashboardMenu.products:
         return const ProductsScreen();
-       case DashboardMenu.purchases:
-         return const PurchasePage();
+      case DashboardMenu.purchases:
+        return const PurchasePage();
       case DashboardMenu.trackship:
         return  TrackshipScreen();
     }
@@ -167,10 +167,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-              Row(
-               
-                children: [
-                 Expanded(
+            Row(
+
+              children: [
+                Expanded(
                   child: Text(
                     "Data for: ${_selectedDate.toLocal().toString().split(' ')[0]}",
                     style: const TextStyle(
@@ -178,13 +178,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.calendar_today),
-                    onPressed: () => _pickDate(context),
-                  ),
-                ],
-              ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.calendar_today),
+                  onPressed: () => _pickDate(context),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             FutureBuilder<List<Map<String, dynamic>>?>(
               future: _supabaseService.getDailySalesStats(_selectedDate),
