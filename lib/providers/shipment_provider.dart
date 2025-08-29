@@ -12,25 +12,19 @@ class ShipmentProvider extends ChangeNotifier {
   List<Shipment> get shipments => _shipments;
   bool get isLoading => _isLoading;
 
-  /// Fetches shipments from Supabase Edge Function / REST API
+  /// Fetch shipments from Supabase
   Future<void> fetchShipments() async {
-    // Only set loading state if not already loading to avoid unnecessary rebuilds
     if (_isLoading) return;
     _isLoading = true;
     notifyListeners();
 
     try {
-      if (kDebugMode) {
-        print('⏳ Fetching shipments from API...');
-      }
+      if (kDebugMode) print('⏳ Fetching shipments from API...');
 
-      final String? supabaseUrl = dotenv.env['SUPABASE_URL'];
-      final String? supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+      final supabaseUrl = dotenv.env['SUPABASE_URL'];
+      final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
 
       if (supabaseUrl == null || supabaseAnonKey == null) {
-        if (kDebugMode) {
-          print('❌ SUPABASE_URL or SUPABASE_ANON_KEY is not defined in the .env file.');
-        }
         throw Exception("Environment variables not found.");
       }
 
@@ -46,9 +40,7 @@ class ShipmentProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         _shipments = data.map((json) => Shipment.fromJson(json)).toList();
-        if (kDebugMode) {
-          print('✅ Fetched ${_shipments.length} shipments successfully.');
-        }
+        if (kDebugMode) print('✅ Fetched ${_shipments.length} shipments.');
       } else {
         if (kDebugMode) {
           print('❌ Failed to fetch shipments: ${response.statusCode}');
@@ -57,9 +49,7 @@ class ShipmentProvider extends ChangeNotifier {
         _shipments = [];
       }
     } catch (e) {
-      if (kDebugMode) {
-        print("❌ Error fetching shipments: $e");
-      }
+      if (kDebugMode) print("❌ Error fetching shipments: $e");
       _shipments = [];
     } finally {
       _isLoading = false;
@@ -67,8 +57,51 @@ class ShipmentProvider extends ChangeNotifier {
     }
   }
 
-  /// Wrapper for pull-to-refresh
   Future<void> refreshShipments() async {
     await fetchShipments();
+  }
+
+  Future<void> updateTrackingNumber(String orderId, String newTracking) async {
+    try {
+      final response = await http.patch(
+        Uri.parse(
+            "${dotenv.env['SUPABASE_URL']}/functions/v1/updateshipmenttracking?order_id=$orderId"),
+        headers: {
+         
+          "Authorization": "Bearer ${dotenv.env['SUPABASE_ANON_KEY']!}",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({"tracking_number": newTracking}),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception("API update failed: ${response.body}");
+      }
+
+      final data = json.decode(response.body);
+
+      // Update local list with fresh response data
+      final index = _shipments.indexWhere((s) => s.orderId == orderId);
+      if (index != -1) {
+        _shipments[index] = Shipment(
+          shipmentId: _shipments[index].shipmentId,
+          orderId: _shipments[index].orderId,
+          trackingNumber: data['tracking_number'] ?? _shipments[index].trackingNumber,
+          shippingProvider: data['shipping_provider'] ?? _shipments[index].shippingProvider,
+          trackingUrl: data['tracking_url'] ?? _shipments[index].trackingUrl,
+          shippingStatus: data['shipping_status'] ?? _shipments[index].shippingStatus,
+          remarks: _shipments[index].remarks,
+          shippedDate: data['shipped_date'] != null
+              ? DateTime.tryParse(data['shipped_date'])
+              : _shipments[index].shippedDate,
+          deliveredDate: _shipments[index].deliveredDate,
+          createdAt: _shipments[index].createdAt,
+          updatedAt: DateTime.now(),
+        );
+      }
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
   }
 }

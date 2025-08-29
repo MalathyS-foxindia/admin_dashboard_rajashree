@@ -146,7 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
        case DashboardMenu.purchases:
          return const PurchasePage();
       case DashboardMenu.trackship:
-        return  TrackshipScreen();
+        return  TrackShipScreen();
     }
   }
 

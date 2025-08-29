@@ -29,51 +29,81 @@ class Shipment {
     this.updatedAt,
   });
 
+  /// Factory to create a Shipment from JSON
   factory Shipment.fromJson(Map<String, dynamic> json) {
     if (kDebugMode) {
       print('📦 [Shipment.fromJson] Parsing JSON data: $json');
     }
 
-    // Check for null or invalid data before parsing
-    final String? shipmentId = json['shipment_id']?.toString();
-    final String? orderId = json['order_id']?.toString();
-    final String? trackingNumber = json['tracking_number']?.toString();
-    final String? shippingProvider = json['shipping_provider']?.toString();
-    final String? trackingUrl = json['tracking_url']?.toString();
-    final String? shippingStatus = json['shipping_status']?.toString();
-    final String? remarks = json['remarks']?.toString();
+    final shipment = Shipment(
+      shipmentId: json['shipment_id']?.toString(),
+      orderId: json['order_id']?.toString(),
+      trackingNumber: json['tracking_number']?.toString(),
+      shippingProvider: json['shipping_provider']?.toString(),
+      trackingUrl: json['tracking_url']?.toString(),
+      shippingStatus: json['shipping_status']?.toString(),
+      remarks: json['remarks']?.toString(),
+      shippedDate: _parseDate(json['shipped_date']),
+      deliveredDate: _parseDate(json['delivered_date']),
+      createdAt: _parseDate(json['created_at']),
+      updatedAt: _parseDate(json['updated_at']),
+    );
 
-    final DateTime? shippedDate = json['shipped_date'] != null
-        ? DateTime.tryParse(json['shipped_date'])
-        : null;
-    final DateTime? deliveredDate = json['delivered_date'] != null
-        ? DateTime.tryParse(json['delivered_date'])
-        : null;
-    final DateTime? createdAt = json['created_at'] != null
-        ? DateTime.tryParse(json['created_at'])
-        : null;
-    final DateTime? updatedAt = json['updated_at'] != null
-        ? DateTime.tryParse(json['updated_at'])
-        : null;
-
-    if (kDebugMode) {
-      if (shippedDate == null) {
-        print('⚠️ [Shipment.fromJson] Failed to parse shipped_date for order $orderId');
-      }
+    if (kDebugMode && shipment.shippedDate == null && json['shipped_date'] != null) {
+      print('⚠️ [Shipment.fromJson] Failed to parse shipped_date for order ${shipment.orderId}');
     }
 
-    return Shipment(
-      shipmentId: shipmentId,
-      orderId: orderId,
-      trackingNumber: trackingNumber,
-      shippingProvider: shippingProvider,
-      trackingUrl: trackingUrl,
-      shippingStatus: shippingStatus,
-      remarks: remarks,
-      shippedDate: shippedDate,
-      deliveredDate: deliveredDate,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-    );
+    return shipment;
+  }
+
+  /// Convert Shipment object to JSON (for Supabase)
+  Map<String, dynamic> toJson() {
+    return {
+      'shipment_id': shipmentId,
+      'order_id': orderId,
+      'tracking_number': trackingNumber,
+      'shipping_provider': shippingProvider,
+      'tracking_url': trackingUrl,
+      'shipping_status': shippingStatus,
+      'remarks': remarks,
+      // Ensure DATE type is sent as yyyy-MM-dd
+      'shipped_date': shippedDate != null ? _formatDateOnly(shippedDate!) : null,
+      'delivered_date': deliveredDate != null ? _formatDateOnly(deliveredDate!) : null,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  /// Helper: Parse DATE or TIMESTAMP
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+
+    try {
+      if (value is String) {
+        if (value.length == 10) {
+          // yyyy-MM-dd
+          return DateTime.parse(value);
+        } else {
+          // ISO timestamp
+          return DateTime.parse(value).toLocal();
+        }
+      }
+      if (value is int) {
+        // Epoch timestamp
+        return DateTime.fromMillisecondsSinceEpoch(value);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ Failed to parse date: $value, error: $e");
+      }
+    }
+    return null;
+  }
+
+  /// Helper: Format date to yyyy-MM-dd (for DATE columns in Supabase)
+  static String _formatDateOnly(DateTime date) {
+    return "${date.year.toString().padLeft(4, '0')}-"
+        "${date.month.toString().padLeft(2, '0')}-"
+        "${date.day.toString().padLeft(2, '0')}";
   }
 }

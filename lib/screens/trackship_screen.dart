@@ -1,243 +1,358 @@
+// lib/screens/track_ship_screen.dart
+import 'package:admin_dashboard_rajshree/widgets/shipment_form.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
-import '../providers/shipment_provider.dart';
-import 'package:intl/intl.dart';
-import '../models/shipment.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class TrackshipScreen extends StatefulWidget {
-  const TrackshipScreen({super.key});
+import '../providers/shipment_provider.dart';
+
+class TrackShipScreen extends StatefulWidget {
+  const TrackShipScreen({super.key});
 
   @override
-  State<TrackshipScreen> createState() => _TrackshipScreenState();
+  State<TrackShipScreen> createState() => _TrackShipScreenState();
 }
 
-class _TrackshipScreenState extends State<TrackshipScreen> {
+class _TrackShipScreenState extends State<TrackShipScreen> {
   @override
   void initState() {
     super.initState();
-    // Fetch shipments as soon as the widget is created.
-    // The `listen: false` is crucial here to prevent an infinite loop.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ShipmentProvider>(context, listen: false).fetchShipments();
     });
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return "";
-    return DateFormat("yyyy-MM-dd").format(date);
+  Future<String?> _scanBarcodeTest(BuildContext context) async {
+    return Future.value("TEST123456789");
+  }
+
+  Future<String?> _scanBarcode(BuildContext context) async {
+    String? scannedValue;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text("Scan Barcode")),
+          body: MobileScanner(
+            onDetect: (capture) {
+              final List<Barcode> barcodes = capture.barcodes;
+              if (barcodes.isNotEmpty) {
+                scannedValue = barcodes.first.rawValue ?? "";
+                Navigator.pop(context);
+              }
+            },
+          ),
+        ),
+      ),
+    );
+
+    return scannedValue;
   }
 
   @override
   Widget build(BuildContext context) {
-    final shipmentProvider = Provider.of<ShipmentProvider>(context);
+    final provider = Provider.of<ShipmentProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Trackship"),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
+        title: const Text("Shipment Tracking"),
       ),
-      body: shipmentProvider.isLoading
+      body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : shipmentProvider.shipments.isEmpty
-              ? const Center(child: Text("No shipments found."))
+          : provider.shipments.isEmpty
+              ? const Center(child: Text("No shipments found"))
               : LayoutBuilder(
                   builder: (context, constraints) {
-                    final isDesktop = constraints.maxWidth > 800;
-                    final summary = _getSummary(shipmentProvider);
-                    return Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Wrap(
-                            alignment: WrapAlignment.spaceEvenly,
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              _SummaryCard(
-                                "Pending",
-                                summary['Pending'].toString(),
-                                Colors.orange,
-                                Icons.schedule,
-                              ),
-                              _SummaryCard(
-                                "Shipped",
-                                summary['Shipped'].toString(),
-                                Colors.blue,
-                                Icons.local_shipping,
-                              ),
-                              _SummaryCard(
-                                "Delivered",
-                                summary['Delivered'].toString(),
-                                Colors.green,
-                                Icons.check_circle,
-                              ),
+                    if (constraints.maxWidth > 600) {
+                      // 📌 Desktop / Tablet
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            border: TableBorder.all(color: Colors.grey.shade300),
+                            columns: const [
+                              DataColumn(label: Text("Order ID")),
+                              DataColumn(label: Text("Provider")),
+                              DataColumn(label: Text("Shipped Date")),
+                              DataColumn(label: Text("Tracking Number")),
+                              DataColumn(label: Text("Tracking URL")),
                             ],
+                            rows: provider.shipments.map((s) {
+                              final controller =
+                                  TextEditingController(text: s.trackingNumber);
+                              bool isEditing = false;
+
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text(s.orderId.toString())),
+                                  DataCell(Text(s.shippingProvider ?? "-")),
+                                  DataCell(Text(
+                                      s.shippedDate?.toString() ?? "-")),
+                                  DataCell(
+                                    StatefulBuilder(
+                                      builder: (context, setState) {
+                                        return Row(
+                                          children: [
+                                            Expanded(
+                                              child: isEditing
+                                                  ? TextField(
+                                                      controller: controller)
+                                                  : Text(s.trackingNumber ?? "-"),
+                                            ),
+                                            if (isEditing)
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.qr_code_scanner,
+                                                  color: Colors.blue,
+                                                ),
+                                                onPressed: () async {
+                                                  final scanned =
+                                                      await _scanBarcodeTest(
+                                                          context);
+                                                  if (scanned != null &&
+                                                      scanned.isNotEmpty) {
+                                                    controller.text = scanned;
+                                                  }
+                                                },
+                                              ),
+                                            if (isEditing)
+                                              IconButton(
+                                                icon: const Icon(Icons.save,
+                                                    color: Colors.green),
+                                                onPressed: () async {
+                                                  try {
+                                                    await provider
+                                                        .updateTrackingNumber(
+                                                      s.shipmentId.toString(),
+                                                      controller.text,
+                                                    );
+
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                            "Tracking number updated"),
+                                                        backgroundColor:
+                                                            Colors.green,
+                                                      ),
+                                                    );
+
+                                                    setState(() =>
+                                                        isEditing = false);
+                                                  } catch (e) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(
+                                                            "Failed to update: $e"),
+                                                        backgroundColor:
+                                                            Colors.red,
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                              ),
+                                            if (isEditing)
+                                              IconButton(
+                                                icon: const Icon(Icons.cancel,
+                                                    color: Colors.red),
+                                                onPressed: () {
+                                                  controller.text =
+                                                      s.trackingNumber ?? "";
+                                                  setState(() =>
+                                                      isEditing = false);
+                                                },
+                                              ),
+                                            if (!isEditing)
+                                              IconButton(
+                                                icon: const Icon(Icons.edit),
+                                                onPressed: () =>
+                                                    setState(() =>
+                                                        isEditing = true),
+                                              ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  DataCell(
+                                    s.trackingUrl != null &&
+                                            s.trackingUrl!.isNotEmpty
+                                        ? InkWell(
+                                            onTap: () async {
+                                              final url =
+                                                  Uri.parse(s.trackingUrl!);
+                                              if (await canLaunchUrl(url)) {
+                                                await launchUrl(url,
+                                                    mode: LaunchMode
+                                                        .externalApplication);
+                                              }
+                                            },
+                                            child: const Text(
+                                              "Open Link",
+                                              style: TextStyle(
+                                                  color: Colors.blue,
+                                                  decoration:
+                                                      TextDecoration.underline),
+                                            ),
+                                          )
+                                        : const Text("-"),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
                           ),
                         ),
-                        Expanded(
-                          child: RefreshIndicator(
-                            onRefresh: () => shipmentProvider.refreshShipments(),
-                            child: isDesktop
-                                ? _buildDataTable(shipmentProvider)
-                                : _buildListView(shipmentProvider),
-                          ),
-                        ),
-                      ],
-                    );
+                      );
+                    } else {
+                      // 📌 Mobile
+                      return ListView.builder(
+                        itemCount: provider.shipments.length,
+                        itemBuilder: (context, index) {
+                          final s = provider.shipments[index];
+                          final controller =
+                              TextEditingController(text: s.trackingNumber);
+                          bool isEditing = false;
+
+                          return Card(
+                            margin: const EdgeInsets.all(8),
+                            child: StatefulBuilder(
+                              builder: (context, setState) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ListTile(
+                                      title: Text("Order: ${s.orderId}"),
+                                      subtitle: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text("Provider: ${s.shippingProvider ?? '-'}"),
+                                          Text("Shipped: ${s.shippedDate ?? '-'}"),
+                                          isEditing
+                                              ? TextField(controller: controller)
+                                              : Text(
+                                                  "Tracking: ${s.trackingNumber ?? '-'}"),
+                                          if (s.trackingUrl != null &&
+                                              s.trackingUrl!.isNotEmpty)
+                                            InkWell(
+                                              onTap: () async {
+                                                final url =
+                                                    Uri.parse(s.trackingUrl!);
+                                                if (await canLaunchUrl(url)) {
+                                                  await launchUrl(url,
+                                                      mode: LaunchMode
+                                                          .externalApplication);
+                                                }
+                                              },
+                                              child: const Text(
+                                                "Open Tracking Link",
+                                                style: TextStyle(
+                                                    color: Colors.blue,
+                                                    decoration: TextDecoration
+                                                        .underline),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (isEditing)
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.qr_code_scanner,
+                                                  color: Colors.blue),
+                                              onPressed: () async {
+                                                final scanned =
+                                                    await _scanBarcodeTest(
+                                                        context);
+                                                if (scanned != null &&
+                                                    scanned.isNotEmpty) {
+                                                  controller.text = scanned;
+                                                }
+                                              },
+                                            ),
+                                          if (isEditing)
+                                            IconButton(
+                                              icon: const Icon(Icons.save,
+                                                  color: Colors.green),
+                                              onPressed: () async {
+                                                try {
+                                                  await provider
+                                                      .updateTrackingNumber(
+                                                    s.shipmentId.toString(),
+                                                    controller.text,
+                                                  );
+                                                  setState(() =>
+                                                      isEditing = false);
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                          "Tracking number updated"),
+                                                      backgroundColor:
+                                                          Colors.green,
+                                                    ),
+                                                  );
+                                                } catch (e) {
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                          "Failed to update: $e"),
+                                                      backgroundColor:
+                                                          Colors.red,
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                          if (isEditing)
+                                            IconButton(
+                                              icon: const Icon(Icons.cancel,
+                                                  color: Colors.red),
+                                              onPressed: () {
+                                                controller.text =
+                                                    s.trackingNumber ?? "";
+                                                setState(() => isEditing = false);
+                                              },
+                                            ),
+                                          if (!isEditing)
+                                            IconButton(
+                                              icon: const Icon(Icons.edit),
+                                              onPressed: () =>
+                                                  setState(() =>
+                                                      isEditing = true),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      );
+                    }
                   },
                 ),
-    );
-  }
-
-  Map<String, int> _getSummary(ShipmentProvider provider) {
-    final Map<String, int> summary = {
-      "Pending": 0,
-      "Shipped": 0,
-      "Delivered": 0
-    };
-    for (var s in provider.shipments) {
-      summary[s.shippingStatus ?? "Pending"] =
-          (summary[s.shippingStatus ?? "Pending"] ?? 0) + 1;
-    }
-    return summary;
-  }
-
-  Widget _buildDataTable(ShipmentProvider provider) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columnSpacing: 24,
-        headingRowColor: WidgetStateProperty.all(
-          Colors.grey.shade200,
-        ),
-        columns: const [
-          DataColumn(label: Text("Order ID")),
-          DataColumn(label: Text("Tracking #")),
-          DataColumn(label: Text("Provider")),
-          DataColumn(label: Text("Status")),
-          DataColumn(label: Text("Shipped Date")),
-          DataColumn(label: Text("Delivered Date")),
-        ],
-        rows: provider.shipments.map((s) {
-          return DataRow(cells: [
-            DataCell(Text(s.orderId ?? "")),
-            DataCell(Text(s.trackingNumber ?? "")),
-            DataCell(Text(s.shippingProvider ?? "")),
-            DataCell(Chip(
-              label: Text(s.shippingStatus ?? ""),
-              backgroundColor: _statusColor(s.shippingStatus),
-            )),
-            DataCell(Text(_formatDate(s.shippedDate))),
-            DataCell(Text(_formatDate(s.deliveredDate))),
-          ]);
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildListView(ShipmentProvider provider) {
-    return ListView.builder(
-      itemCount: provider.shipments.length,
-      itemBuilder: (context, index) {
-        final s = provider.shipments[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 2,
-          child: ListTile(
-            leading: Icon(
-              Icons.local_shipping,
-              color: _statusColor(s.shippingStatus),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddShipmentScreen(),
             ),
-            title: Text("Order: ${s.orderId}"),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Tracking: ${s.trackingNumber}"),
-                Text("Provider: ${s.shippingProvider}"),
-                Text("Status: ${s.shippingStatus}"),
-                if (s.shippedDate != null)
-                  Text("Shipped: ${_formatDate(s.shippedDate)}"),
-                if (s.deliveredDate != null)
-                  Text("Delivered: ${_formatDate(s.deliveredDate)}"),
-              ],
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.open_in_new),
-              onPressed: () {
-                if (s.trackingUrl != null) {
-                  // TODO: launch URL
-                }
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Color _statusColor(String? status) {
-    switch (status) {
-      case "Pending":
-        return Colors.orange.shade300;
-      case "Shipped":
-        return Colors.blue.shade300;
-      case "Delivered":
-        return Colors.green.shade400;
-      default:
-        return Colors.grey.shade400;
-    }
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final Color color;
-  final IconData icon;
-
-  const _SummaryCard(this.title, this.value, this.color, this.icon);
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      color: color.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              backgroundColor: color.withOpacity(0.2),
-              child: Icon(icon, color: color),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                      color: color, fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            )
-          ],
-        ),
+          );
+          Provider.of<ShipmentProvider>(context, listen: false)
+              .fetchShipments();
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }
