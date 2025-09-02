@@ -2,6 +2,7 @@
 
 import 'package:admin_dashboard_rajshree/providers/purchase_provider.dart';
 import 'package:admin_dashboard_rajshree/providers/shipment_provider.dart';
+import 'package:admin_dashboard_rajshree/providers/vendor_provider.dart';
 import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -15,7 +16,7 @@ import 'providers/product_provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: 'assets/.env'); // Load environment variables
-    // ✅ Initialize Supabase before creating any providers
+  // ✅ Initialize Supabase before creating any providers
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
@@ -40,7 +41,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider(Supabase.instance.client)),
         ChangeNotifierProvider(create: (_) => PurchaseProvider()),
-        ChangeNotifierProvider( create: (_) => ShipmentProvider())
+        ChangeNotifierProvider( create: (_) => ShipmentProvider()),
+        ChangeNotifierProvider( create: (_) => VendorProvider())
+
         // Add any other providers your app needs here
       ],
       child: MaterialApp(
