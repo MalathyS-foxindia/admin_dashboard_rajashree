@@ -1,19 +1,22 @@
+// lib/screens/track_ship_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../providers/shipment_provider.dart';
 import '../models/shipment.dart';
-import '../utils/csv_exporter.dart';
-import '../utils/bulk_delete.dart';
+import '../widgets/shipment_form.dart';
 
-class TrackshipScreen extends StatefulWidget {
-  const TrackshipScreen({super.key});
+class TrackShipScreen extends StatefulWidget {
+  const TrackShipScreen({super.key});
 
   @override
-  State<TrackshipScreen> createState() => _TrackshipScreenState();
+  State<TrackShipScreen> createState() => _TrackShipScreenState();
 }
 
-class _TrackshipScreenState extends State<TrackshipScreen> {
+class _TrackShipScreenState extends State<TrackShipScreen> {
   String _searchQuery = '';
   int _rowsPerPage = 10;
   int _currentPage = 0;
@@ -28,8 +31,34 @@ class _TrackshipScreenState extends State<TrackshipScreen> {
   }
 
   String _formatDate(DateTime? date) {
-    if (date == null) return "";
+    if (date == null) return "-";
     return DateFormat("yyyy-MM-dd").format(date);
+  }
+
+  Future<String?> _scanBarcodeTest(BuildContext context) async {
+    return Future.value("C123456789");
+  }
+
+  /// Detect provider from tracking number
+  Map<String, String?> _detectProviderFromTracking(String trackingNumber) {
+    String? provider;
+    if (trackingNumber.startsWith("C")) {
+      provider = "DTDC";
+    } else if (trackingNumber.startsWith("F")) {
+      provider = "Franch Express";
+    } else if (trackingNumber.endsWith("IN")) {
+      provider = "India Post";
+    }
+    return {"provider": provider};
+  }
+
+  /// Stub method for Excel export
+  Future<void> _exportToExcel(List<Shipment> shipments) async {
+    // TODO: Replace with real Excel export logic
+    debugPrint("Stub: Exporting ${shipments.length} shipments to Excel...");
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Excel export is not yet implemented")),
+    );
   }
 
   @override
@@ -38,144 +67,111 @@ class _TrackshipScreenState extends State<TrackshipScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Trackship"),
+        title: const Text("Shipment Tracking"),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: shipmentProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : shipmentProvider.shipments.isEmpty
-          ? const Center(child: Text("No shipments found."))
-          : LayoutBuilder(
-        builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth > 800;
-          final summary = _getSummary(shipmentProvider);
+              ? const Center(child: Text("No shipments found."))
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isDesktop = constraints.maxWidth > 800;
+                    final summary = _getSummary(shipmentProvider);
 
-          return Column(
-            children: [
-              // Search Bar
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText:
-                    'Search by Order ID or Tracking Number',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value.toLowerCase();
-                      _currentPage = 0;
-                    });
-                  },
-                ),
-              ),
-
-              // Summary Cards + Action Buttons
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        alignment: WrapAlignment.start,
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          _SummaryCard(
-                            "Pending",
-                            summary['Pending'].toString(),
-                            Colors.orange,
-                            Icons.schedule,
-                          ),
-                          _SummaryCard(
-                            "Shipped",
-                            summary['Shipped'].toString(),
-                            Colors.blue,
-                            Icons.local_shipping,
-                          ),
-                          _SummaryCard(
-                            "Delivered",
-                            summary['Delivered'].toString(),
-                            Colors.green,
-                            Icons.check_circle,
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Buttons always visible but disabled if none selected
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    return Column(
                       children: [
-                        ElevatedButton.icon(
-                          onPressed: _selectedRows.isEmpty
-                              ? null
-                              : () {
-                            final selectedItems = _selectedRows
-                                .map((i) => shipmentProvider
-                                .shipments[i])
-                                .toList();
-                            BulkDelete.confirmAndDelete(
-                                context, selectedItems)
-                                .then((_) {
+                        // 🔎 Search Bar
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText:
+                                  'Search by Order ID or Tracking Number',
+                              prefixIcon: const Icon(Icons.search),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onChanged: (value) {
                               setState(() {
-                                _selectedRows.clear();
+                                _searchQuery = value.toLowerCase();
+                                _currentPage = 0;
                               });
-                            });
-                          },
-                          icon: const Icon(Icons.delete),
-                          label: const Text('Delete'),
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red),
+                            },
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: _selectedRows.isEmpty
-                              ? null
-                              : () async {
-                            final selectedItems = _selectedRows
-                                .map((i) => shipmentProvider
-                                .shipments[i])
-                                .toList();
-                            final path = await CsvExporter
-                                .exportShipments(selectedItems);
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(
-                              SnackBar(
-                                  content:
-                                  Text('Exported to $path')),
-                            );
-                          },
-                          icon: const Icon(Icons.download),
-                          label: const Text('Export'),
+
+                        // 📊 Summary Cards + Export
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: [
+                                    _SummaryCard("Pending",
+                                        summary['Pending'].toString(),
+                                        Colors.orange, Icons.schedule),
+                                    _SummaryCard("Shipped",
+                                        summary['Shipped'].toString(),
+                                        Colors.blue, Icons.local_shipping),
+                                    _SummaryCard("Delivered",
+                                        summary['Delivered'].toString(),
+                                        Colors.green, Icons.check_circle),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: _selectedRows.isEmpty
+                                    ? null
+                                    : () async {
+                                        final selectedItems = _selectedRows
+                                            .map((i) => shipmentProvider.shipments[i])
+                                            .toList();
+                                        await _exportToExcel(selectedItems);
+                                      },
+                                icon: const Icon(Icons.download),
+                                label: const Text('Export Excel'),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // 📋 Shipments List
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: () =>
+                                shipmentProvider.refreshShipments(),
+                            child: isDesktop
+                                ? _buildDataTable(shipmentProvider)
+                                : _buildListView(shipmentProvider),
+                          ),
                         ),
                       ],
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              ),
-
-              // Data Table / List View
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () =>
-                      shipmentProvider.refreshShipments(),
-                  child: isDesktop
-                      ? _buildDataTable(shipmentProvider)
-                      : _buildListView(shipmentProvider),
-                ),
-              ),
-            ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AddShipmentScreen(),
+            ),
           );
+          Provider.of<ShipmentProvider>(context, listen: false).fetchShipments();
         },
+        child: const Icon(Icons.add),
       ),
     );
   }
 
+  /// 📊 Shipment summary
   Map<String, int> _getSummary(ShipmentProvider provider) {
     final Map<String, int> summary = {
       "Pending": 0,
@@ -189,19 +185,16 @@ class _TrackshipScreenState extends State<TrackshipScreen> {
     return summary;
   }
 
+  /// 🖥 DataTable for desktop
   Widget _buildDataTable(ShipmentProvider provider) {
-    final filteredShipments = provider.shipments.where((s) {
+    final filtered = provider.shipments.where((s) {
       return s.orderId?.toLowerCase().contains(_searchQuery) == true ||
           s.trackingNumber?.toLowerCase().contains(_searchQuery) == true;
     }).toList();
 
     final start = _currentPage * _rowsPerPage;
-    final end = start + _rowsPerPage;
-    final pageItems = filteredShipments.sublist(
-        start,
-        end > filteredShipments.length
-            ? filteredShipments.length
-            : end);
+    final end = (start + _rowsPerPage).clamp(0, filtered.length);
+    final pageItems = filtered.sublist(start, end);
 
     return Column(
       children: [
@@ -210,20 +203,20 @@ class _TrackshipScreenState extends State<TrackshipScreen> {
           child: DataTable(
             showCheckboxColumn: true,
             columnSpacing: 24,
-            headingRowColor: WidgetStateProperty.all(
-              Colors.grey.shade200,
-            ),
+            headingRowColor: WidgetStateProperty.all(Colors.grey.shade200),
             columns: const [
               DataColumn(label: Text("Order ID")),
-              DataColumn(label: Text("Tracking #")),
               DataColumn(label: Text("Provider")),
-              DataColumn(label: Text("Status")),
               DataColumn(label: Text("Shipped Date")),
-              DataColumn(label: Text("Delivered Date")),
+              DataColumn(label: Text("Tracking Number")),
+              DataColumn(label: Text("Tracking URL")),
             ],
             rows: List.generate(pageItems.length, (index) {
               final s = pageItems[index];
               final rowIndex = start + index;
+              final controller = TextEditingController(text: s.trackingNumber);
+              bool isEditing = false;
+
               return DataRow(
                 selected: _selectedRows.contains(rowIndex),
                 onSelectChanged: (selected) {
@@ -237,19 +230,115 @@ class _TrackshipScreenState extends State<TrackshipScreen> {
                 },
                 cells: [
                   DataCell(Text(s.orderId ?? "")),
-                  DataCell(Text(s.trackingNumber ?? "")),
-                  DataCell(Text(s.shippingProvider ?? "")),
-                  DataCell(Chip(
-                    label: Text(s.shippingStatus ?? ""),
-                    backgroundColor: _statusColor(s.shippingStatus),
-                  )),
+                  DataCell(Text(s.shippingProvider ?? "-")),
                   DataCell(Text(_formatDate(s.shippedDate))),
-                  DataCell(Text(_formatDate(s.deliveredDate))),
+                  DataCell(
+                    StatefulBuilder(
+                      builder: (context, setState) {
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: isEditing
+                                  ? TextField(controller: controller)
+                                  : Text(s.trackingNumber ?? "-"),
+                            ),
+                            if (isEditing)
+                              IconButton(
+                                icon: const Icon(Icons.qr_code_scanner,
+                                    color: Colors.blue),
+                                onPressed: () async {
+                                  final scanned =
+                                      await _scanBarcodeTest(context);
+                                  if (scanned != null && scanned.isNotEmpty) {
+                                    controller.text = scanned;
+                                  }
+                                },
+                              ),
+                            if (isEditing)
+                              IconButton(
+                                icon: const Icon(Icons.save,
+                                    color: Colors.green),
+                                onPressed: () async {
+                                  try {
+                                    final detected =
+                                        _detectProviderFromTracking(
+                                            controller.text);
+
+                                    await provider.updateTrackingNumber(
+                                      s.orderId.toString(),
+                                      controller.text,
+                                      detected["provider"] ??
+                                          s.shippingProvider ??
+                                          "",
+                                      true,
+                                    );
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content:
+                                            Text("Tracking number updated"),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                    setState(() => isEditing = false);
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content:
+                                            Text("Failed to update: $e"),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            if (isEditing)
+                              IconButton(
+                                icon: const Icon(Icons.cancel,
+                                    color: Colors.red),
+                                onPressed: () {
+                                  controller.text = s.trackingNumber ?? "";
+                                  setState(() => isEditing = false);
+                                },
+                              ),
+                            if (!isEditing)
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () =>
+                                    setState(() => isEditing = true),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  DataCell(
+                    s.trackingUrl != null && s.trackingUrl!.isNotEmpty
+                        ? InkWell(
+                            onTap: () async {
+                              final url = Uri.parse(s.trackingUrl!);
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url,
+                                    mode: LaunchMode.externalApplication);
+                              }
+                            },
+                            child: const Text(
+                              "Open Link",
+                              style: TextStyle(
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          )
+                        : const Text("-"),
+                  ),
                 ],
               );
             }),
           ),
         ),
+
+        // Pagination
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           child: Row(
@@ -281,11 +370,10 @@ class _TrackshipScreenState extends State<TrackshipScreen> {
                     : null,
               ),
               Text(
-                'Page ${_currentPage + 1} of ${(filteredShipments.length / _rowsPerPage).ceil()}',
-              ),
+                  'Page ${_currentPage + 1} of ${(filtered.length / _rowsPerPage).ceil()}'),
               IconButton(
                 icon: const Icon(Icons.chevron_right),
-                onPressed: end < filteredShipments.length
+                onPressed: end < filtered.length
                     ? () => setState(() => _currentPage++)
                     : null,
               ),
@@ -296,60 +384,122 @@ class _TrackshipScreenState extends State<TrackshipScreen> {
     );
   }
 
+  /// 📱 ListView for mobile
   Widget _buildListView(ShipmentProvider provider) {
+    final filtered = provider.shipments.where((s) {
+      return s.orderId?.toLowerCase().contains(_searchQuery) == true ||
+          s.trackingNumber?.toLowerCase().contains(_searchQuery) == true;
+    }).toList();
+
     return ListView.builder(
-      itemCount: provider.shipments.length,
+      itemCount: filtered.length,
       itemBuilder: (context, index) {
-        final s = provider.shipments[index];
+        final s = filtered[index];
+        final controller = TextEditingController(text: s.trackingNumber);
+        bool isEditing = false;
+
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 2,
-          child: ListTile(
-            leading: Icon(
-              Icons.local_shipping,
-              color: _statusColor(s.shippingStatus),
-            ),
-            title: Text("Order: ${s.orderId}"),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Tracking: ${s.trackingNumber}"),
-                Text("Provider: ${s.shippingProvider}"),
-                Text("Status: ${s.shippingStatus}"),
-                if (s.shippedDate != null)
-                  Text("Shipped: ${_formatDate(s.shippedDate)}"),
-                if (s.deliveredDate != null)
-                  Text("Delivered: ${_formatDate(s.deliveredDate)}"),
-              ],
-            ),
-            trailing: IconButton(
-              icon: const Icon(Icons.open_in_new),
-              onPressed: () {
-                if (s.trackingUrl != null) {
-                  // TODO: launch URL
-                }
-              },
-            ),
+          margin: const EdgeInsets.all(8),
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return ListTile(
+                title: Text("Order: ${s.orderId}"),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Provider: ${s.shippingProvider ?? '-'}"),
+                    Text("Shipped: ${_formatDate(s.shippedDate)}"),
+                    isEditing
+                        ? TextField(controller: controller)
+                        : Text("Tracking: ${s.trackingNumber ?? '-'}"),
+                    if (s.trackingUrl != null && s.trackingUrl!.isNotEmpty)
+                      InkWell(
+                        onTap: () async {
+                          final url = Uri.parse(s.trackingUrl!);
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url,
+                                mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: const Text(
+                          "Open Tracking Link",
+                          style: TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isEditing)
+                      IconButton(
+                        icon: const Icon(Icons.qr_code_scanner,
+                            color: Colors.blue),
+                        onPressed: () async {
+                          final scanned = await _scanBarcodeTest(context);
+                          if (scanned != null && scanned.isNotEmpty) {
+                            controller.text = scanned;
+                          }
+                        },
+                      ),
+                    if (isEditing)
+                      IconButton(
+                        icon: const Icon(Icons.save, color: Colors.green),
+                        onPressed: () async {
+                          try {
+                            final detected =
+                                _detectProviderFromTracking(controller.text);
+
+                            await provider.updateTrackingNumber(
+                              s.shipmentId.toString(),
+                              controller.text,
+                              detected["provider"] ??
+                                  s.shippingProvider ??
+                                  "",
+                              true,
+                            );
+
+                            setState(() => isEditing = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Tracking number updated"),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Failed to update: $e"),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    if (isEditing)
+                      IconButton(
+                        icon: const Icon(Icons.cancel, color: Colors.red),
+                        onPressed: () {
+                          controller.text = s.trackingNumber ?? "";
+                          setState(() => isEditing = false);
+                        },
+                      ),
+                    if (!isEditing)
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => setState(() => isEditing = true),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         );
       },
     );
-  }
-
-  Color _statusColor(String? status) {
-    switch (status) {
-      case "Pending":
-        return Colors.orange;
-      case "Shipped":
-        return Colors.blue;
-      case "Delivered":
-        return Colors.green;
-      default:
-        return Colors.greenAccent;
-    }
   }
 }
 
@@ -380,20 +530,17 @@ class _SummaryCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                      color: color, fontWeight: FontWeight.bold, fontSize: 14),
-                ),
+                Text(title,
+                    style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14)),
                 const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text(value,
+                    style: TextStyle(
+                        color: color,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
               ],
             )
           ],
