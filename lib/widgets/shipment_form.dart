@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/shipment_provider.dart';
-// import 'package:mobile_scanner/mobile_scanner.dart'; // Enable later when using scanner
 
 class AddShipmentScreen extends StatefulWidget {
   const AddShipmentScreen({super.key});
@@ -18,17 +17,51 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
 
   bool _isSubmitting = false;
 
+  // Dropdown values
+  final List<String> _shippingProviders = [
+    "DTDC",
+    "Franch Express",
+    "India Post"
+  ];
+  String? _selectedProvider;
+  String _trackingUrl = "";
+
+  /// Detect provider + tracking URL from tracking number
+  void _detectProviderFromTracking(String trackingNumber) {
+    String? provider;
+    
+    if (trackingNumber.startsWith("C")) {
+      provider = "DTDC";
+      
+    } else if (trackingNumber.startsWith("F")) {
+      provider = "Franch Express";
+      
+    } else if (trackingNumber.endsWith("IN")) {
+      provider = "India Post";
+      
+    }
+
+    setState(() {
+      _selectedProvider = provider;
+    
+    });
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final orderId = _orderIdController.text.trim();
     final trackingNumber = _trackingNumberController.text.trim();
-
+    final provider = _selectedProvider ?? "Other";
+    var inline=false;
     setState(() => _isSubmitting = true);
     try {
       await Provider.of<ShipmentProvider>(context, listen: false).updateTrackingNumber(
         orderId,
         trackingNumber,
+        provider,
+        inline
+      // 👈 pass tracking URL also
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -48,7 +81,8 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   /// Mock button for testing without barcode scanner
   void _fillMockData() {
     _orderIdController.text = "WA000005";
-    _trackingNumberController.text = "SHIP67890";
+    _trackingNumberController.text = "C123456";
+    _detectProviderFromTracking("C123456");
   }
 
   @override
@@ -80,9 +114,34 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   hintText: "Scan or enter Tracking ID",
                   border: OutlineInputBorder(),
                 ),
+                onChanged: _detectProviderFromTracking, // 👈 auto-detect provider
                 validator: (value) =>
                     value == null || value.isEmpty ? "Tracking ID is required" : null,
               ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedProvider,
+                decoration: const InputDecoration(
+                  labelText: "Shipping Provider",
+                  border: OutlineInputBorder(),
+                ),
+                items: _shippingProviders
+                    .map((provider) => DropdownMenuItem(
+                          value: provider,
+                          child: Text(provider),
+                        ))
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedProvider = value),
+                validator: (value) =>
+                    value == null ? "Please select a provider" : null,
+              ),
+              if (_trackingUrl.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  "🔗 Tracking URL: $_trackingUrl",
+                  style: const TextStyle(color: Colors.blue),
+                ),
+              ],
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -93,7 +152,10 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Text("Save"),
                       onPressed: _isSubmitting ? null : _submit,

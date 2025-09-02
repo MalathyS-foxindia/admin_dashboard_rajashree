@@ -24,7 +24,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
   }
 
   Future<String?> _scanBarcodeTest(BuildContext context) async {
-    return Future.value("TEST123456789");
+    return Future.value("C123456789");
   }
 
   Future<String?> _scanBarcode(BuildContext context) async {
@@ -49,6 +49,25 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
     );
 
     return scannedValue;
+  }
+
+  /// Detect provider + tracking URL from tracking number
+  Map<String, String?> _detectProviderFromTracking(String trackingNumber) {
+    String? provider;
+    
+
+    if (trackingNumber.startsWith("C")) {
+      provider = "DTDC";
+      
+    } else if (trackingNumber.startsWith("F")) {
+      provider = "Franch Express";
+      
+    } else if (trackingNumber.endsWith("IN")) {
+      provider = "India Post";
+      
+    }
+
+    return {"provider": provider};
   }
 
   @override
@@ -89,8 +108,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                 cells: [
                                   DataCell(Text(s.orderId.toString())),
                                   DataCell(Text(s.shippingProvider ?? "-")),
-                                  DataCell(Text(
-                                      s.shippedDate?.toString() ?? "-")),
+                                  DataCell(Text(s.shippedDate?.toString() ?? "-")),
                                   DataCell(
                                     StatefulBuilder(
                                       builder: (context, setState) {
@@ -98,20 +116,16 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                           children: [
                                             Expanded(
                                               child: isEditing
-                                                  ? TextField(
-                                                      controller: controller)
+                                                  ? TextField(controller: controller)
                                                   : Text(s.trackingNumber ?? "-"),
                                             ),
                                             if (isEditing)
                                               IconButton(
-                                                icon: const Icon(
-                                                  Icons.qr_code_scanner,
-                                                  color: Colors.blue,
-                                                ),
+                                                icon: const Icon(Icons.qr_code_scanner,
+                                                    color: Colors.blue),
                                                 onPressed: () async {
                                                   final scanned =
-                                                      await _scanBarcodeTest(
-                                                          context);
+                                                      await _scanBarcodeTest(context);
                                                   if (scanned != null &&
                                                       scanned.isNotEmpty) {
                                                     controller.text = scanned;
@@ -124,10 +138,15 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                                     color: Colors.green),
                                                 onPressed: () async {
                                                   try {
-                                                    await provider
-                                                        .updateTrackingNumber(
-                                                      s.shipmentId.toString(),
+                                                    final detected =
+                                                        _detectProviderFromTracking(
+                                                            controller.text);
+
+                                                    await provider.updateTrackingNumber(
+                                                      s.orderId.toString(),
                                                       controller.text,
+                                                      detected["provider"] ?? s.shippingProvider!,
+                                                      true
                                                     );
 
                                                     ScaffoldMessenger.of(context)
@@ -140,8 +159,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                                       ),
                                                     );
 
-                                                    setState(() =>
-                                                        isEditing = false);
+                                                    setState(() => isEditing = false);
                                                   } catch (e) {
                                                     ScaffoldMessenger.of(context)
                                                         .showSnackBar(
@@ -162,16 +180,14 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                                 onPressed: () {
                                                   controller.text =
                                                       s.trackingNumber ?? "";
-                                                  setState(() =>
-                                                      isEditing = false);
+                                                  setState(() => isEditing = false);
                                                 },
                                               ),
                                             if (!isEditing)
                                               IconButton(
                                                 icon: const Icon(Icons.edit),
                                                 onPressed: () =>
-                                                    setState(() =>
-                                                        isEditing = true),
+                                                    setState(() => isEditing = true),
                                               ),
                                           ],
                                         );
@@ -183,8 +199,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                             s.trackingUrl!.isNotEmpty
                                         ? InkWell(
                                             onTap: () async {
-                                              final url =
-                                                  Uri.parse(s.trackingUrl!);
+                                              final url = Uri.parse(s.trackingUrl!);
                                               if (await canLaunchUrl(url)) {
                                                 await launchUrl(url,
                                                     mode: LaunchMode
@@ -240,8 +255,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                               s.trackingUrl!.isNotEmpty)
                                             InkWell(
                                               onTap: () async {
-                                                final url =
-                                                    Uri.parse(s.trackingUrl!);
+                                                final url = Uri.parse(s.trackingUrl!);
                                                 if (await canLaunchUrl(url)) {
                                                   await launchUrl(url,
                                                       mode: LaunchMode
@@ -252,8 +266,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                                 "Open Tracking Link",
                                                 style: TextStyle(
                                                     color: Colors.blue,
-                                                    decoration: TextDecoration
-                                                        .underline),
+                                                    decoration: TextDecoration.underline),
                                               ),
                                             ),
                                         ],
@@ -268,8 +281,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                                   color: Colors.blue),
                                               onPressed: () async {
                                                 final scanned =
-                                                    await _scanBarcodeTest(
-                                                        context);
+                                                    await _scanBarcodeTest(context);
                                                 if (scanned != null &&
                                                     scanned.isNotEmpty) {
                                                   controller.text = scanned;
@@ -282,13 +294,18 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                                   color: Colors.green),
                                               onPressed: () async {
                                                 try {
-                                                  await provider
-                                                      .updateTrackingNumber(
+                                                  final detected =
+                                                      _detectProviderFromTracking(
+                                                          controller.text);
+
+                                                  await provider.updateTrackingNumber(
                                                     s.shipmentId.toString(),
                                                     controller.text,
+                                                    detected["provider"] ?? s.shippingProvider!,
+                                                    true
                                                   );
-                                                  setState(() =>
-                                                      isEditing = false);
+
+                                                  setState(() => isEditing = false);
                                                   ScaffoldMessenger.of(context)
                                                       .showSnackBar(
                                                     const SnackBar(
@@ -325,8 +342,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                             IconButton(
                                               icon: const Icon(Icons.edit),
                                               onPressed: () =>
-                                                  setState(() =>
-                                                      isEditing = true),
+                                                  setState(() => isEditing = true),
                                             ),
                                         ],
                                       ),
@@ -349,8 +365,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
               builder: (context) => const AddShipmentScreen(),
             ),
           );
-          Provider.of<ShipmentProvider>(context, listen: false)
-              .fetchShipments();
+          Provider.of<ShipmentProvider>(context, listen: false).fetchShipments();
         },
         child: const Icon(Icons.add),
       ),

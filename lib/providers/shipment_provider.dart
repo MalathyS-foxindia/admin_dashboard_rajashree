@@ -61,20 +61,35 @@ class ShipmentProvider extends ChangeNotifier {
     await fetchShipments();
   }
 
-  Future<void> updateTrackingNumber(String orderId, String newTracking) async {
+  Future<void> updateTrackingNumber(String orderId, String newTracking, String provider,bool isinline) async {
+    var apiUrl ="${dotenv.env['SUPABASE_URL']}/functions/v1/updateshipmenttracking?order_id=$orderId" ;
     try {
+      if(provider=="India Post")
+      {
+        newTracking="Yet to update";
+      }
+      if(isinline)
+      {
+        apiUrl+="&inline=true";
+      }
+      else
+      {
+        apiUrl+="&inline=false";
+      }
       final response = await http.patch(
         Uri.parse(
-            "${dotenv.env['SUPABASE_URL']}/functions/v1/updateshipmenttracking?order_id=$orderId"),
+            apiUrl
+        ),
         headers: {
          
           "Authorization": "Bearer ${dotenv.env['SUPABASE_ANON_KEY']!}",
           "Content-Type": "application/json",
         },
-        body: jsonEncode({"tracking_number": newTracking}),
+        body: jsonEncode({"tracking_number": newTracking, "shipping_provider": provider}),
       );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        print(response.body);
         throw Exception("API update failed: ${response.body}");
       }
 
@@ -100,7 +115,9 @@ class ShipmentProvider extends ChangeNotifier {
         );
       }
       notifyListeners();
-    } catch (e) {
+    } catch (e,stack) {
+      print(e);
+      print(stack);
       rethrow;
     }
   }
