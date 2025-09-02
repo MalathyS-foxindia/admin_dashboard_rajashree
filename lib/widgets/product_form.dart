@@ -251,7 +251,7 @@ print(const JsonEncoder.withIndent('  ').convert(product.toJson())); // Use toJs
                     return TextFormField(controller: _category, decoration: const InputDecoration(labelText: 'Category'));
                   }
                   return DropdownButtonFormField<String>(
-                    initialValue: _category.text.isNotEmpty ? _category.text : null,
+                   // initialValue: _category.text.isNotEmpty ? _category.text : null,
                     items: cats.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                     onChanged: (val) {
                       if (val != null) _category.text = val;

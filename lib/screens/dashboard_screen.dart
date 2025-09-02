@@ -3,6 +3,7 @@ import 'package:admin_dashboard_rajshree/screens/orders_screen.dart';
 import 'package:admin_dashboard_rajshree/screens/products_screen.dart';
 import 'package:admin_dashboard_rajshree/screens/purchase_screen.dart';
 import 'package:admin_dashboard_rajshree/screens/trackship_screen.dart';
+import 'package:admin_dashboard_rajshree/screens/vendor_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajshree/services/dashboard_service.dart';
@@ -15,6 +16,7 @@ enum DashboardMenu {
   products,
   purchases,
   trackship,
+  vendors,
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -114,6 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase"),
           _buildMenuItem(
               DashboardMenu.trackship, Icons.local_shipping, "Trackship"),
+          _buildMenuItem(DashboardMenu.vendors, Icons.store_mall_directory, "Vendors"),
         ],
       ),
     );
@@ -147,6 +150,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const PurchasePage();
       case DashboardMenu.trackship:
         return  TrackshipScreen();
+      case DashboardMenu.vendors:
+        return const VendorScreen();
     }
   }
 
