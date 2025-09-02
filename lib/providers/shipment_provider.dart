@@ -12,26 +12,18 @@ class ShipmentProvider extends ChangeNotifier {
   List<Shipment> get shipments => _shipments;
   bool get isLoading => _isLoading;
 
-  /// Fetches shipments from Supabase Edge Function / REST API
+  /// Fetches shipments from Supabase REST API
   Future<void> fetchShipments() async {
-    // Only set loading state if not already loading to avoid unnecessary rebuilds
     if (_isLoading) return;
     _isLoading = true;
     notifyListeners();
 
     try {
-      if (kDebugMode) {
-        print('⏳ Fetching shipments from API...');
-      }
-
       final String? supabaseUrl = dotenv.env['SUPABASE_URL'];
       final String? supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
 
       if (supabaseUrl == null || supabaseAnonKey == null) {
-        if (kDebugMode) {
-          print('❌ SUPABASE_URL or SUPABASE_ANON_KEY is not defined in the .env file.');
-        }
-        throw Exception("Environment variables not found.");
+        throw Exception("SUPABASE_URL or SUPABASE_ANON_KEY missing");
       }
 
       final url = "$supabaseUrl/rest/v1/shipment_tracking?select=*";
@@ -46,14 +38,7 @@ class ShipmentProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         _shipments = data.map((json) => Shipment.fromJson(json)).toList();
-        if (kDebugMode) {
-          print('✅ Fetched ${_shipments.length} shipments successfully.');
-        }
       } else {
-        if (kDebugMode) {
-          print('❌ Failed to fetch shipments: ${response.statusCode}');
-          print('❌ Response body: ${response.body}');
-        }
         _shipments = [];
       }
     } catch (e) {
@@ -70,5 +55,46 @@ class ShipmentProvider extends ChangeNotifier {
   /// Wrapper for pull-to-refresh
   Future<void> refreshShipments() async {
     await fetchShipments();
+  }
+
+  /// Bulk delete shipments by IDs
+  Future<void> deleteShipments(List<String> ids) async {
+    try {
+      final String? supabaseUrl = dotenv.env['SUPABASE_URL'];
+      final String? supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+
+      if (supabaseUrl == null || supabaseAnonKey == null) {
+        throw Exception("SUPABASE_URL or SUPABASE_ANON_KEY missing");
+      }
+
+      final url = "$supabaseUrl/rest/v1/shipment_tracking";
+      final filter = ids.map((id) => 'id.eq.$id').join(',');
+
+      final response = await http.delete(
+        Uri.parse('$url?$filter'),
+        headers: {
+          "apikey": supabaseAnonKey,
+          "Authorization": "Bearer $supabaseAnonKey",
+        },
+      );
+
+      if (response.statusCode == 204) {
+        // Remove deleted shipments locally
+        _shipments.removeWhere((s) => ids.contains(s.shipmentId));
+        notifyListeners();
+        if (kDebugMode) {
+          print('✅ Deleted ${ids.length} shipments successfully.');
+        }
+      } else {
+        if (kDebugMode) {
+          print('❌ Failed to delete shipments: ${response.statusCode}');
+          print('❌ Response: ${response.body}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error during deletion: $e');
+      }
+    }
   }
 }

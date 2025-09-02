@@ -1,75 +1,112 @@
-
 import 'package:admin_dashboard_rajshree/models/products_model.dart';
 import 'package:admin_dashboard_rajshree/models/vendor_model.dart';
 
-class PurchaseItems {
-  final String purchaseId;
-  final List<Variant> items;
+class PurchaseItem {
+  final int purchaseItemId;
+  final int purchaseId;
+  final int variantId;
   final int quantity;
+  final double costPrice;
+  final Variant? variant; // joined product_variants info
 
-  PurchaseItems({
+  PurchaseItem({
+    required this.purchaseItemId,
     required this.purchaseId,
-    required this.items,
+    required this.variantId,
     required this.quantity,
+    required this.costPrice,
+    this.variant,
   });
 
-  factory PurchaseItems.fromJson(Map<String, dynamic> json) {
-    return PurchaseItems(
-      purchaseId: json['purchase_id'] as String? ?? 'N/A',
-      items: (json['items'] as List<dynamic>?)
-              ?.map((item) => Variant.fromJson(item as Map<String, dynamic>))
-              .toList() ??
-          [],
+  factory PurchaseItem.fromJson(Map<String, dynamic> json) {
+    return PurchaseItem(
+      purchaseItemId: (json['purchase_item_id'] as num?)?.toInt() ?? 0,
+      purchaseId: (json['purchase_id'] as num?)?.toInt() ?? 0,
+      variantId: (json['variant_id'] as num?)?.toInt() ?? 0,
       quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      costPrice: (json['cost_price'] as num?)?.toDouble() ?? 0.0,
+      variant: json['product_variants'] != null
+          ? Variant.fromJson(json['product_variants'] as Map<String, dynamic>)
+          : null,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'purchase_id': purchaseId,
+      'variant_id': variantId,
+      'quantity': quantity,
+      'cost_price': costPrice,
+    };
   }
 }
 
 class Purchase {
-  final String purchaseId;
-  final Vendor vendordetails;
+  final int purchaseId;
+  final String invoiceNo;
+  final DateTime invoiceDate;
+  final String? invoiceImage;
   final int vendorId;
+  final Vendor vendordetails;
   final double totalAmount;
-  final List<PurchaseItems> items;
+  final DateTime? purchaseDate;
+  final List<PurchaseItem> items;
 
   Purchase({
     required this.purchaseId,
+    required this.invoiceNo,
+    required this.invoiceDate,
+    this.invoiceImage,
+    required this.vendorId,
     required this.vendordetails,
     required this.totalAmount,
+    this.purchaseDate,
     required this.items,
-    required this.vendorId,
   });
 
   factory Purchase.fromJson(Map<String, dynamic> json) {
-    // Parse vendor details safely
-    final vendorData = json['vendor_details'] as Map<String, dynamic>?;
+    final vendorData = json['vendor'] as Map<String, dynamic>?;
+
     final vendor = vendorData != null
         ? Vendor.fromJson(vendorData)
-        : Vendor(name: 'N/A', vendor_id: 0, address: '', contactNumber: '', gst: '');
+        : Vendor(
+      vendor_id: 0,
+      name: 'N/A',
+      address: '',
+      contactNumber: '',
+      gst: '',
+      createdAt: DateTime.now(),
+      updatedAt: null,
+    );
 
-    // Parse purchase items safely
-    final purchaseItems = (json['purchase_items'] as List<dynamic>?)
-            ?.map((item) => PurchaseItems.fromJson(item))
-            .toList() ??
-        [];
+    final itemsData = json['purchase_items'] as List<dynamic>?;
 
     return Purchase(
-      purchaseId: json['purchase_id'] as String? ?? 'N/A',
+      purchaseId: (json['purchase_id'] as num?)?.toInt() ?? 0,
+      invoiceNo: json['invoice_no'] ?? '',
+      invoiceDate: DateTime.tryParse(json['invoice_date'].toString()) ??
+          DateTime.now(),
+      invoiceImage: json['invoice_image'],
+      vendorId: (json['vendor_id'] as num?)?.toInt() ?? 0,
       vendordetails: vendor,
-      totalAmount:
-          json['amount'] is num ? (json['amount'] as num).toDouble() : 0.0,
-      items: purchaseItems,
-      vendorId: json['vendor_id'],
+      totalAmount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      purchaseDate: json['purchase_date'] != null
+          ? DateTime.tryParse(json['purchase_date'].toString())
+          : null,
+      items: itemsData != null
+          ? itemsData.map((e) => PurchaseItem.fromJson(e)).toList()
+          : [],
     );
   }
-}
-  Map<String, dynamic> toJson(String purchaseId, Vendor vendordetails, double totalAmount, List<PurchaseItems> items, String? vendorId) {
+
+  Map<String, dynamic> toJson() {
     return {
-      'purchase_id': purchaseId,
-      'vendor_details': vendordetails,
+      'invoice_no': invoiceNo,
+      'invoice_date': invoiceDate.toIso8601String(),
+      'invoice_image': invoiceImage,
+      'vendor_id': vendorId,
       'amount': totalAmount,
-      'purchase_items': items.map((item) => item).toList(),
-      if (vendorId != null) 'vendor_id': vendorId,
+      'purchase_date': purchaseDate?.toIso8601String(),
     };
   }
-
+}
