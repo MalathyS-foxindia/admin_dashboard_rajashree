@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../models/products_model.dart';
 import '../providers/product_provider.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProductForm extends StatefulWidget {
   final Product? initial;
@@ -14,6 +17,10 @@ class ProductForm extends StatefulWidget {
 
 class _ProductFormState extends State<ProductForm> {
   final _formKey = GlobalKey<FormState>();
+
+  File? _imageFile;
+  String? _imageUrl;
+  final ImagePicker _picker = ImagePicker();
 
   late TextEditingController _name;
   late TextEditingController _desc;
@@ -63,6 +70,8 @@ class _ProductFormState extends State<ProductForm> {
                 'size': TextEditingController(
                     text: v.size != null ? v.size.toString() : ''),
                 'isActive': ValueNotifier<bool>(v.isActive ?? true),
+                'imageFile': null,
+                'imageUrl': v.imageUrl ?? '',
               })
           .toList();
     }
@@ -89,6 +98,28 @@ class _ProductFormState extends State<ProductForm> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() => _imageFile = File(picked.path));
+    }
+  }
+
+  Future<String?> _uploadImage(File file, String prefix) async {
+    final fileName = '$prefix${DateTime.now().millisecondsSinceEpoch}.png';
+    try {
+      await Supabase.instance.client
+          .storage
+          .from('product-images')
+          .upload(fileName, file, fileOptions: const FileOptions(upsert: true));
+      return Supabase.instance.client.storage.from('product-images').getPublicUrl(fileName);
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Image upload failed: $e')));
+      return null;
+    }
+  }
+
   void _addVariantRow() {
     setState(() {
       _variants.add({
@@ -102,19 +133,19 @@ class _ProductFormState extends State<ProductForm> {
         'length': TextEditingController(),
         'size': TextEditingController(),
         'isActive': ValueNotifier<bool>(true),
+        'imageFile': null,
+        'imageUrl': '',
       });
     });
   }
 
   void _removeVariantRow(int idx) {
     if (widget.initial != null) {
-      // Editing → disallow deleting
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Cannot delete variants while editing")),
       );
       return;
     }
-    // Allowed only when creating
     setState(() {
       final map = _variants.removeAt(idx);
       for (var entry in map.entries) {
@@ -129,14 +160,25 @@ class _ProductFormState extends State<ProductForm> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
     final provider = Provider.of<ProductProvider>(context, listen: false);
 
-    List<Variant>? variantsToSend;
+    // --- Upload main image ---
+    if (_imageFile != null) {
+      final url = await _uploadImage(_imageFile!, 'product');
+      if (url == null) return;
+      _imageUrl = url;
+    }
 
+    List<Variant>? variantsToSend;
     if (_hasVariant) {
-      variantsToSend = _variants.map((m) {
-        return Variant(
+      variantsToSend = [];
+      for (var m in _variants) {
+        if (m['imageFile'] != null) {
+          final url = await _uploadImage(m['imageFile'], m['sku'].text);
+          if (url == null) return;
+          m['imageUrl'] = url;
+        }
+        variantsToSend.add(Variant(
           id: m['variant_id']!.text.isEmpty ? null : m['variant_id']!.text,
           name: m['variant_name']!.text,
           sku: m['sku']!.text,
@@ -147,8 +189,9 @@ class _ProductFormState extends State<ProductForm> {
           length: m['length']!.text.isEmpty ? null : double.tryParse(m['length']!.text),
           size: m['size']!.text.isEmpty ? null : double.tryParse(m['size']!.text),
           isActive: (m['isActive'] as ValueNotifier<bool>).value,
-        );
-      }).toList();
+          imageUrl: m['imageUrl'],
+        ));
+      }
     } else {
       variantsToSend = [
         Variant(
@@ -162,6 +205,7 @@ class _ProductFormState extends State<ProductForm> {
           length: null,
           size: null,
           isActive: true,
+          imageUrl: _imageUrl,
         ),
       ];
     }
@@ -174,10 +218,8 @@ class _ProductFormState extends State<ProductForm> {
       category: _category.text.trim(),
       hasVariant: _hasVariant,
       variants: variantsToSend,
+      imageUrl: _imageUrl,
     );
-
-    print("Updated product:");
-    print(const JsonEncoder.withIndent('  ').convert(product.toJson()));
 
     bool ok = widget.initial == null
         ? await provider.addProduct(product)
@@ -196,6 +238,7 @@ class _ProductFormState extends State<ProductForm> {
   Widget _variantCard(int idx) {
     final m = _variants[idx];
     final isEdit = widget.initial != null;
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       elevation: 2,
@@ -215,7 +258,7 @@ class _ProductFormState extends State<ProductForm> {
                     validator: (s) => (s == null || s.isEmpty) ? 'Required' : null,
                   ),
                 ),
-                if (!isEdit) // delete only when creating
+                if (!isEdit)
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () => _removeVariantRow(idx),
@@ -226,56 +269,62 @@ class _ProductFormState extends State<ProductForm> {
             TextFormField(
               controller: m['sku'],
               decoration: const InputDecoration(labelText: 'SKU'),
-              readOnly: isEdit, // lock SKU in edit mode
+              readOnly: isEdit,
             ),
-            Row(children: [
-              Expanded(
-                child: TextFormField(
-                  controller: m['saleprice'],
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Sale price'),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: m['saleprice'],
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Sale price'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  controller: m['regularprice'],
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Regular price'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: m['regularprice'],
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Regular price'),
+                  ),
                 ),
-              ),
-            ]),
-            Row(children: [
-              Expanded(
-                child: TextFormField(
-                  controller: m['weight'],
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Weight'),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: m['weight'],
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Weight'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  controller: m['color'],
-                  decoration: const InputDecoration(labelText: 'Color'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: m['color'],
+                    decoration: const InputDecoration(labelText: 'Color'),
+                  ),
                 ),
-              ),
-            ]),
-            Row(children: [
-              Expanded(
-                child: TextFormField(
-                  controller: m['length'],
-                  decoration: const InputDecoration(labelText: 'Length'),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: m['length'],
+                    decoration: const InputDecoration(labelText: 'Length'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  controller: m['size'],
-                  decoration: const InputDecoration(labelText: 'Size'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    controller: m['size'],
+                    decoration: const InputDecoration(labelText: 'Size'),
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
             const SizedBox(height: 6),
             ValueListenableBuilder<bool>(
               valueListenable: m['isActive'],
@@ -287,10 +336,35 @@ class _ProductFormState extends State<ProductForm> {
                 onChanged: (val) => m['isActive'].value = val,
               ),
             ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                _imageFileWidget(m),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () async {
+                    final picked = await _picker.pickImage(source: ImageSource.gallery);
+                    if (picked != null) {
+                      setState(() => m['imageFile'] = File(picked.path));
+                    }
+                  },
+                  child: const Text('Upload Image'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _imageFileWidget(Map<String, dynamic> variant) {
+    if (variant['imageFile'] != null) {
+      return Image.file(variant['imageFile'], width: 60, height: 60, fit: BoxFit.cover);
+    } else if (variant['imageUrl'] != null && variant['imageUrl'].isNotEmpty) {
+      return Image.network(variant['imageUrl'], width: 60, height: 60, fit: BoxFit.cover);
+    }
+    return Container(width: 60, height: 60, color: Colors.grey[300]);
   }
 
   @override
@@ -307,20 +381,24 @@ class _ProductFormState extends State<ProductForm> {
           key: _formKey,
           child: ListView(
             children: [
-              // --- Product info section ---
               const Text("Product Information", style: TextStyle(fontWeight: FontWeight.bold)),
               const Divider(),
-              TextFormField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Name'),
-                validator: (s) => (s == null || s.isEmpty) ? 'Required' : null,
+              GestureDetector(
+                onTap: _pickImage,
+                child: _imageFile != null
+                    ? Image.file(_imageFile!, height: 120, fit: BoxFit.cover)
+                    : _imageUrl != null
+                        ? Image.network(_imageUrl!, height: 120, fit: BoxFit.cover)
+                        : Container(
+                            height: 120,
+                            color: Colors.grey[300],
+                            child: const Center(child: Icon(Icons.camera_alt, size: 40)),
+                          ),
               ),
+              const SizedBox(height: 8),
+              TextFormField(controller: _name, decoration: const InputDecoration(labelText: 'Name'), validator: (s) => (s == null || s.isEmpty) ? 'Required' : null),
               TextFormField(controller: _desc, decoration: const InputDecoration(labelText: 'Description')),
-              TextFormField(
-                controller: _sku,
-                decoration: const InputDecoration(labelText: 'SKU'),
-                readOnly: isEdit, // lock SKU field in edit mode
-              ),
+              TextFormField(controller: _sku, decoration: const InputDecoration(labelText: 'SKU'), readOnly: isEdit),
               Consumer<ProductProvider>(
                 builder: (ctx, prov, _) {
                   final cats = prov.categories;
@@ -330,9 +408,7 @@ class _ProductFormState extends State<ProductForm> {
                   return DropdownButtonFormField<String>(
                     value: _category.text.isNotEmpty ? _category.text : null,
                     items: cats.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                    onChanged: (val) {
-                      if (val != null) _category.text = val;
-                    },
+                    onChanged: (val) { if (val != null) _category.text = val; },
                     decoration: const InputDecoration(labelText: 'Category'),
                   );
                 },
@@ -345,15 +421,11 @@ class _ProductFormState extends State<ProductForm> {
                 ],
               ),
               const SizedBox(height: 8),
-
-              // --- Price/weight fields (if no variants) ---
               if (!_hasVariant) ...[
                 TextFormField(controller: _salePrice, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sale price')),
                 TextFormField(controller: _regularPrice, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Regular price')),
                 TextFormField(controller: _weight, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Weight')),
               ],
-
-              // --- Variants section ---
               if (_hasVariant) ...[
                 const SizedBox(height: 12),
                 const Text("Variants", style: TextStyle(fontWeight: FontWeight.bold)),
