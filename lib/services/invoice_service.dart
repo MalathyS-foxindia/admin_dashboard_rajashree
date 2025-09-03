@@ -113,6 +113,7 @@ final customFont = pw.Font.ttf(ttf);
 
     // Return file details (base64 for API or upload)
     return {
+      "orderId": orderId,
       "fileName": "Invoice_$orderId.pdf",
       "filedate":  norderDate,
       "mimeType": "application/pdf",

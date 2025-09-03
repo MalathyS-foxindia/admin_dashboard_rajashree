@@ -8,7 +8,6 @@ import '../models/products_model.dart';
 class ProductProvider with ChangeNotifier {
   final String _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
   final String _anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
-  final String _serviceRoleKey = dotenv.env['SUPABASE_SERVICE_ROLE'] ?? '';
 
   ProductProvider() {
     if (_supabaseUrl.isEmpty || _anonKey.isEmpty) {
@@ -16,7 +15,9 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  /// State
+  /// ---------------------------
+  /// STATE
+  /// ---------------------------
   bool isLoading = false;
   String? error;
 
@@ -27,9 +28,37 @@ class ProductProvider with ChangeNotifier {
   List<String> get categories => List.unmodifiable(_categories);
 
   int _page = 1;
-  final int _limit = 10;
-  bool _hasMore = true;
-  bool get hasMore => _hasMore;
+  int _limit = 10;
+  int _total = 0;
+
+  int get currentPage => _page;
+  int get limit => _limit;
+  int get totalItems => _total;
+  int get totalPages => (_total / _limit).ceil();
+  bool get hasMore => _page < totalPages;
+
+  /// ---------------------------
+  /// SETTERS
+  /// ---------------------------
+  void setPageSize(int size, {String? search, String? category}) {
+    _limit = size;
+    _page = 1;
+    fetchProducts(reset: true, search: search, category: category);
+  }
+
+  void nextPage({String? search, String? category}) {
+    if (hasMore) {
+      _page++;
+      fetchProducts(reset: true, search: search, category: category);
+    }
+  }
+
+  void previousPage({String? search, String? category}) {
+    if (_page > 1) {
+      _page--;
+      fetchProducts(reset: true, search: search, category: category);
+    }
+  }
 
   /// ---------------------------
   /// FETCH PRODUCTS
@@ -40,12 +69,9 @@ class ProductProvider with ChangeNotifier {
     String? category,
   }) async {
     if (isLoading) return;
-    if (!_hasMore && !reset) return;
 
     if (reset) {
-      _page = 1;
       _items.clear();
-      _hasMore = true;
       error = null;
       notifyListeners();
     }
@@ -80,10 +106,15 @@ class ProductProvider with ChangeNotifier {
         final data = jsonDecode(resp.body);
 
         final List<dynamic> jsonList = data['data'] ?? [];
-        print(jsonList);
         final newProducts = jsonList
             .map((j) => Product.fromJson(j as Map<String, dynamic>))
             .toList();
+
+        _total = data['total'] ?? newProducts.length;
+
+        _items
+          ..clear()
+          ..addAll(newProducts);
 
         if (reset) {
           _categories
@@ -94,17 +125,6 @@ class ProductProvider with ChangeNotifier {
                 .toSet()
                 .toList());
         }
-
-        _items.addAll(newProducts);
-
-        final int total = data['total'] ?? 0;
-        if (total > 0) {
-          _hasMore = _items.length < total;
-        } else {
-          _hasMore = newProducts.isNotEmpty;
-        }
-
-        if (_hasMore) _page++;
       } else {
         error = 'Fetch failed (${resp.statusCode}): ${resp.body}';
         debugPrint('❌ fetchProducts error: ${resp.body}');
@@ -116,14 +136,6 @@ class ProductProvider with ChangeNotifier {
       isLoading = false;
       notifyListeners();
     }
-  }
-
-  Future<void> fetchMoreProducts({
-    String? search,
-    String? category,
-  }) async {
-    if (!_hasMore || isLoading) return;
-    await fetchProducts(search: search, category: category);
   }
 
   /// ---------------------------
@@ -162,7 +174,7 @@ class ProductProvider with ChangeNotifier {
   }
 
   /// ---------------------------
-  /// UPDATE
+  /// UPDATE PRODUCT
   /// ---------------------------
   Future<bool> updateProduct(Product p) async {
     if (p.id == null) {
@@ -175,7 +187,6 @@ class ProductProvider with ChangeNotifier {
 
     try {
       final url = '$_supabaseUrl/functions/v1/update-product-with-variants';
-  
       final resp = await http.post(
         Uri.parse(url),
         headers: {
@@ -183,22 +194,12 @@ class ProductProvider with ChangeNotifier {
           'Authorization': 'Bearer $_anonKey',
           'Content-Type': 'application/json',
         },
-        
         body: jsonEncode(p.toJson()),
       );
 
       if (resp.statusCode == 200 || resp.statusCode == 204) {
         await fetchProducts(reset: true);
         return true;
-      } else if (resp.statusCode == 400) {
-        final Map<String, dynamic> respData = jsonDecode(resp.body);
-        if (respData.containsKey('variant_id')) {
-          final ids = (respData['variant_id'] as List).join(', ');
-          error = 'Variants linked to existing orders: $ids';
-        } else {
-          error = respData['error'] ?? 'Update failed';
-        }
-        return false;
       } else {
         error = 'Update failed (${resp.statusCode}): ${resp.body}';
         return false;
@@ -214,72 +215,45 @@ class ProductProvider with ChangeNotifier {
   }
 
   /// ---------------------------
-  /// DELETE
+  /// TOGGLE VARIANT ACTIVE/INACTIVE
   /// ---------------------------
-  Future<bool> deleteProduct(String productId) async {
-    isLoading = true;
-    notifyListeners();
-
+  Future<bool> updateVariantStatus(String variantId, bool isActive) async {
     try {
       final url =
-          '$_supabaseUrl/rest/v1/master_product?product_id=eq.$productId';
-      final resp = await http.delete(
+          '$_supabaseUrl/rest/v1/product_variants?variant_id=eq.$variantId';
+      final resp = await http.patch(
         Uri.parse(url),
         headers: {
-          'apikey': _serviceRoleKey,
-          'Authorization': 'Bearer $_serviceRoleKey',
+          'apikey': _anonKey,
+          'Authorization': 'Bearer $_anonKey',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation',
         },
+        body: jsonEncode({'is_Active': isActive}),
       );
 
-      if (resp.statusCode == 204) {
-        _items.removeWhere((p) => p.id == productId);
-        notifyListeners();
-        return true;
-      } else {
-        error = 'Delete failed (${resp.statusCode}): ${resp.body}';
-        return false;
-      }
-    } catch (e) {
-      error = e.toString();
-      debugPrint('❌ deleteProduct exception: $e');
-      return false;
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
-  }
+      if (resp.statusCode == 200 || resp.statusCode == 204) {
+        for (var product in _items) {
+          final idx = product.variants?.indexWhere((v) => v.id == variantId) ?? -1;
+          if (idx != -1) {
+            product.variants![idx] =
+                product.variants![idx].copyWith(isActive: isActive);
 
-  Future<bool> deleteVariant(String variantId) async {
-    isLoading = true;
-    notifyListeners();
-
-    try {
-      final url = '$_supabaseUrl/rest/v1/product_variants?id=eq.$variantId';
-      final resp = await http.delete(
-        Uri.parse(url),
-        headers: {
-          'apikey': _serviceRoleKey,
-          'Authorization': 'Bearer $_serviceRoleKey',
-        },
-      );
-
-      if (resp.statusCode == 204) {
-        for (var p in _items) {
-          p.variants?.removeWhere((v) => v.id == variantId);
+            final allInactive = product.variants!.every((v) => v.isActive == false);
+            product.isActive = !allInactive;
+            break;
+          }
         }
         notifyListeners();
         return true;
       } else {
-        error = 'Delete variant failed (${resp.statusCode}): ${resp.body}';
+        error = 'Update variant failed (${resp.statusCode}): ${resp.body}';
         return false;
       }
     } catch (e) {
       error = e.toString();
-      debugPrint('❌ deleteVariant exception: $e');
+      debugPrint('❌ updateVariantStatus exception: $e');
       return false;
-    } finally {
-      isLoading = false;
-      notifyListeners();
     }
   }
 }

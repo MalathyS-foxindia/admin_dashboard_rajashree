@@ -17,19 +17,35 @@ class OrderProvider with ChangeNotifier {
   List<Order> get orders => _orders;
   bool get isLoading => _isLoading;
 
-  Future<void> fetchOrders() async {
+  /// Fetch all orders (with optional search or filter)
+  Future<void> fetchOrders({String? search, String? filter}) async {
     _isLoading = true;
     notifyListeners();
 
-    const url = 'https://gvsorguincvinuiqtooo.supabase.co/functions/v1/getOrderWithItems';
-    final response = await http.get(Uri.parse(url), headers: {
+    final queryParams = <String, String>{'limit': '1000'};
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
+    if (filter != null && filter.isNotEmpty) queryParams['filter'] = filter;
+
+    final uri = Uri.https(
+      'gvsorguincvinuiqtooo.supabase.co',
+      '/functions/v1/getOrderWithItems',
+      queryParams,
+    );
+
+    final response = await http.get(uri, headers: {
       'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}',
     });
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (data['orders'] != null) {
-        _orders = List<Order>.from(data['orders'].map((e) => Order.fromJson(e)));
+        // Parse with shipment status included
+        _orders = List<Order>.from(
+          data['orders'].map((e) => Order.fromJson({
+                ...e,
+                'shipment_status': e['shipment_status'], // ✅ Ensure included
+              })),
+        );
       }
     } else {
       debugPrint('Error fetching orders: ${response.body}');
@@ -39,18 +55,25 @@ class OrderProvider with ChangeNotifier {
     notifyListeners();
   }
 
-// Fetch single order detail (items)
+  /// Fetch single order detail (items)
   Future<List<OrderItem>> fetchOrderItems(String orderId) async {
-    final url = 'https://gvsorguincvinuiqtooo.supabase.co/functions/v1/getOrderWithItems?order_id=$orderId';
+    final uri = Uri.https(
+      'gvsorguincvinuiqtooo.supabase.co',
+      '/functions/v1/getOrderWithItems',
+      {'orderId': orderId},
+    );
+
     final headers = {
-       'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}'
+      'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}'
     };
 
     try {
-      final response = await http.get(Uri.parse(url), headers: headers);
+      final response = await http.get(uri, headers: headers);
       final body = json.decode(response.body);
       if (response.statusCode == 200 && body['items'] != null) {
-        return (body['items'] as List).map((e) => OrderItem.fromJson(e)).toList();
+        return (body['items'] as List)
+            .map((e) => OrderItem.fromJson(e))
+            .toList();
       }
     } catch (e) {
       print('Order detail fetch error: $e');
@@ -59,13 +82,18 @@ class OrderProvider with ChangeNotifier {
     return [];
   }
 
-Future<Map<String, dynamic>?> fetchOrderJson(String orderId) async {
+  /// Fetch raw invoice JSON for an order
+  Future<Map<String, dynamic>?> fetchOrderJson(String orderId) async {
     try {
       print('Fetching JSON for order: $orderId');
-       final headers = {
-       'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}'
-    };
-      final response = await http.get(Uri.parse('https://gvsorguincvinuiqtooo.supabase.co/functions/v1/generateinvoice?order_id=$orderId'),headers: headers);
+      final headers = {
+        'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}'
+      };
+      final response = await http.get(
+        Uri.parse(
+            'https://gvsorguincvinuiqtooo.supabase.co/functions/v1/generateinvoice?order_id=$orderId'),
+        headers: headers,
+      );
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -76,48 +104,57 @@ Future<Map<String, dynamic>?> fetchOrderJson(String orderId) async {
     return null;
   }
 
-  // Upload PDF to Google Drive via your backend edge function
-Future<bool> uploadInvoiceToSupabaseStorage(Map<String, dynamic> invoiceData) async {
-  try {
-    // ✅ Get the Supabase client (already initialized in main.dart)
-    final supabase = Supabase.instance.client;
+  /// Upload PDF invoice to Supabase Storage
+  Future<bool> uploadInvoiceToSupabaseStorage(
+      Map<String, dynamic> invoiceData) async {
+    try {
+      final supabase = Supabase.instance.client;
 
-    // ✅ Prepare file bytes
-    Uint8List fileBytes;
-    if (invoiceData['fileData'] is String) {
-      // If Base64 string → decode
-      fileBytes = base64Decode(invoiceData['fileData']);
-    } else if (invoiceData['fileData'] is Uint8List) {
-      // Already Uint8List
-      fileBytes = invoiceData['fileData'];
-    } else {
-      throw Exception("Invalid fileData format — must be Base64 string or Uint8List");
+      Uint8List fileBytes;
+      if (invoiceData['fileData'] is String) {
+        fileBytes = base64Decode(invoiceData['fileData']);
+      } else if (invoiceData['fileData'] is Uint8List) {
+        fileBytes = invoiceData['fileData'];
+      } else {
+        throw Exception(
+            "Invalid fileData format — must be Base64 string or Uint8List");
+      }
+
+      final filePath =
+          'Invoices_${invoiceData['filedate']}/${invoiceData['fileName']}';
+
+      final response = await supabase.storage
+          .from('invoices')
+          .uploadBinary(filePath, fileBytes,
+              fileOptions: FileOptions(contentType: 'application/pdf'));
+
+      if (response.isEmpty) {
+        throw Exception("Failed to upload invoice to Supabase Storage");
+      }
+
+      final publicUrl =
+          supabase.storage.from('invoices').getPublicUrl(filePath);
+
+      debugPrint('✅ Invoice uploaded: $publicUrl');
+       // ✅ Update the order row with invoice_url
+     final updateRes = await supabase
+      .from('orders')
+      .update({'invoice_url': publicUrl})
+      .eq('order_id', invoiceData['orderId'].toString().trim())
+      .select(); // return updated rows so we can check
+
+  if (updateRes.isEmpty) {
+    throw Exception("No order found with order_id ${invoiceData['orderId']}");
+  }
+      debugPrint('✅ invoice_url updated in orders table');
+    return true;  
     }
-
-
-// ✅ Build file path: invoices/{invoice_date}/{fileName}.pdf
-final filePath = 'Invoices_${invoiceData['filedate']}/${invoiceData['fileName']}';
-
     
-    // ✅ Upload
-    final response = await supabase.storage
-        .from('invoices')
-        .uploadBinary(filePath, fileBytes, fileOptions: FileOptions(contentType: 'application/pdf'));
-
-    if (response.isEmpty) {
-      throw Exception("Failed to upload invoice to Supabase Storage");
-    }
-
-    // ✅ Get public URL
-    final publicUrl = supabase.storage.from('invoices').getPublicUrl(filePath);
-   
-    debugPrint('✅ Invoice uploaded: $publicUrl');
-     return true;
-
-  } catch (e) {
+      catch (e) {
     debugPrint('❌ Error uploading invoice: $e');
     return false;
   }
-}
+    
+  } 
 
-}
+ }

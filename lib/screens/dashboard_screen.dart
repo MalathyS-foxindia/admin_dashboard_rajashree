@@ -1,4 +1,3 @@
-// Import the SupabaseService from its new location
 import 'package:admin_dashboard_rajshree/screens/orders_screen.dart';
 import 'package:admin_dashboard_rajshree/screens/products_screen.dart';
 import 'package:admin_dashboard_rajshree/screens/purchase_screen.dart';
@@ -7,8 +6,7 @@ import 'package:admin_dashboard_rajshree/screens/vendor_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajshree/services/dashboard_service.dart';
-
-
+import 'package:fl_chart/fl_chart.dart';
 
 enum DashboardMenu {
   dashboard,
@@ -29,7 +27,8 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   DashboardMenu selectedMenu = DashboardMenu.dashboard;
   final SupabaseService _supabaseService = SupabaseService();
-  DateTime _selectedDate = DateTime.now(); // State variable for the date
+  DateTime _selectedDate = DateTime.now(); // For daily stats
+
   Future<void> _pickDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -43,6 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -52,11 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 3,
         title: Row(
           children: [
-            // ✅ Corrected logo path
-            Image.asset(
-              "images/logo.png",
-              height: 32,
-            ),
+            Image.asset("images/logo.png", height: 32),
             const SizedBox(width: 12),
             const Text(
               "Rajshree Fashions",
@@ -64,7 +60,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-
         actions: [
           PopupMenuButton<String>(
             icon: const CircleAvatar(
@@ -97,7 +92,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Sidebar menu
   Widget _buildSideMenu() {
     return Container(
       width: 220,
@@ -114,13 +108,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _buildMenuItem(DashboardMenu.orders, Icons.shopping_cart, "Orders"),
           _buildMenuItem(DashboardMenu.products, Icons.store, "Products"),
           _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase"),
-          _buildMenuItem(
-              DashboardMenu.trackship, Icons.local_shipping, "Trackship"),
+          _buildMenuItem(DashboardMenu.trackship, Icons.local_shipping, "Trackship"),
           _buildMenuItem(DashboardMenu.vendors, Icons.store_mall_directory, "Vendors"),
         ],
       ),
     );
   }
+
   Widget _buildMenuItem(DashboardMenu menu, IconData icon, String title) {
     final isSelected = selectedMenu == menu;
     return ListTile(
@@ -137,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: () => setState(() => selectedMenu = menu),
     );
   }
-  /// Main content area
+
   Widget _buildContent() {
     switch (selectedMenu) {
       case DashboardMenu.dashboard:
@@ -149,13 +143,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case DashboardMenu.purchases:
         return const PurchasePage();
       case DashboardMenu.trackship:
-        return  TrackshipScreen();
+        return TrackShipScreen();
       case DashboardMenu.vendors:
         return const VendorScreen();
     }
   }
 
-  /// Full dashboard content with cards
   Widget _buildDashboardContent() {
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 1000;
@@ -173,13 +166,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 16),
             Row(
-
               children: [
                 Expanded(
                   child: Text(
                     "Data for: ${_selectedDate.toLocal().toString().split(' ')[0]}",
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -191,6 +182,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 16),
+
+            // --- Summary Cards ---
             FutureBuilder<List<Map<String, dynamic>>?>(
               future: _supabaseService.getDailySalesStats(_selectedDate),
               builder: (context, snapshot) {
@@ -208,41 +201,115 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ? dailyStats[0]['order_count']?.toString() ?? '0'
                     : '0';
 
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final cols = isDesktop ? 4 : (isTablet ? 2 : 1);
-                    return GridView(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: cols,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        mainAxisExtent: 110,
-                      ),
-                      children: [
-                        _SummaryCard(
-                          title: "Sales (Today)",
-                          value: "₹$totalSales",
-                          color: Colors.blue,
-                          icon: Icons.currency_rupee,
-                        ),
-                        _SummaryCard(
-                          title: "Orders (Today)",
-                          value: orderCount,
-                          color: Colors.green,
-                          icon: Icons.shopping_bag,
-                        ),
-                        const _SummaryCard(
-                            title: "Customers", value: "0", color: Colors.orange, icon: Icons.people),
-                        const _SummaryCard(
-                            title: "Products", value: "0", color: Colors.purple, icon: Icons.inventory),
-                      ],  
-                    );
-                  },
+                final cols = isDesktop ? 4 : (isTablet ? 2 : 1);
+                return GridView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: cols,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    mainAxisExtent: 110,
+                  ),
+                  children: [
+                    _SummaryCard(
+                      title: "Sales (Today)",
+                      value: "₹$totalSales",
+                      color: Colors.blue,
+                      icon: Icons.currency_rupee,
+                    ),
+                    _SummaryCard(
+                      title: "Orders (Today)",
+                      value: orderCount,
+                      color: Colors.green,
+                      icon: Icons.shopping_bag,
+                    ),
+                    const _SummaryCard(
+                        title: "Customers",
+                        value: "0",
+                        color: Colors.orange,
+                        icon: Icons.people),
+                    const _SummaryCard(
+                        title: "Products",
+                        value: "0",
+                        color: Colors.purple,
+                        icon: Icons.inventory),
+                  ],
                 );
               },
             ),
+            const SizedBox(height: 24),
+
+            // --- Line Chart for Last Week ---
+            const Text("Weekly Sales & Orders", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            FutureBuilder<List<Map<String, dynamic>>?>(
+              future: _supabaseService.getWeeklySalesStats(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text("No weekly data available."));
+                }
+
+                final data = snapshot.data!;
+                final salesSpots = <FlSpot>[];
+                final ordersSpots = <FlSpot>[];
+
+                for (int i = 0; i < data.length; i++) {
+                  final day = i.toDouble();
+                  salesSpots.add(FlSpot(day, (data[i]['total_sales'] ?? 0).toDouble()));
+                  ordersSpots.add(FlSpot(day, (data[i]['order_count'] ?? 0).toDouble()));
+                }
+
+                return SizedBox(
+                  height: 250,
+                  child: LineChart(
+                    LineChartData(
+                      gridData: FlGridData(show: true),
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            interval: 1,
+                            getTitlesWidget: (value, meta) {
+                              int idx = value.toInt();
+                              if (idx >= 0 && idx < data.length) {
+                                final date = DateTime.parse(data[idx]['sale_date']);
+                                return Text("${date.month}/${date.day}");
+                              }
+                              return const Text("");
+                            },
+                          ),
+                        ),
+                      ),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: salesSpots,
+                          isCurved: true,
+                          color: Colors.blue,
+                          barWidth: 3,
+                          dotData: FlDotData(show: true),
+                          belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.2)),
+                        ),
+                        LineChartBarData(
+                          spots: ordersSpots,
+                          isCurved: true,
+                          color: Colors.green,
+                          barWidth: 3,
+                          dotData: FlDotData(show: true),
+                          belowBarData: BarAreaData(show: true, color: Colors.green.withOpacity(0.2)),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -250,7 +317,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-/// Card widgets
 class _SummaryCard extends StatelessWidget {
   final String title;
   final String value;
@@ -282,19 +348,12 @@ class _SummaryCard extends StatelessWidget {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(title,
-                      style: TextStyle(fontSize: 16, color: color),
-                      overflow: TextOverflow.ellipsis),
+                  Text(title, style: TextStyle(fontSize: 16, color: color)),
                   const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
+                  Text(value,
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
                 ],
               ),
             ),
