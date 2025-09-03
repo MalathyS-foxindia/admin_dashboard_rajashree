@@ -12,13 +12,16 @@ class ShipmentProvider extends ChangeNotifier {
   List<Shipment> get shipments => _shipments;
   bool get isLoading => _isLoading;
 
+
   /// Fetch shipments from Supabase
+
   Future<void> fetchShipments() async {
     if (_isLoading) return;
     _isLoading = true;
     notifyListeners();
 
     try {
+
       if (kDebugMode) print('⏳ Fetching shipments from API...');
 
       final supabaseUrl = dotenv.env['SUPABASE_URL'];
@@ -26,6 +29,7 @@ class ShipmentProvider extends ChangeNotifier {
 
       if (supabaseUrl == null || supabaseAnonKey == null) {
         throw Exception("Environment variables not found.");
+
       }
 
       final url = "$supabaseUrl/rest/v1/shipment_tracking?select=*";
@@ -40,12 +44,10 @@ class ShipmentProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         _shipments = data.map((json) => Shipment.fromJson(json)).toList();
+
         if (kDebugMode) print('✅ Fetched ${_shipments.length} shipments.');
+
       } else {
-        if (kDebugMode) {
-          print('❌ Failed to fetch shipments: ${response.statusCode}');
-          print('❌ Response body: ${response.body}');
-        }
         _shipments = [];
       }
     } catch (e) {
@@ -60,6 +62,7 @@ class ShipmentProvider extends ChangeNotifier {
   Future<void> refreshShipments() async {
     await fetchShipments();
   }
+
 
   Future<void> updateTrackingNumber(String orderId, String newTracking, String provider,bool isinline) async {
     var apiUrl ="${dotenv.env['SUPABASE_URL']}/functions/v1/updateshipmenttracking?order_id=$orderId" ;
@@ -119,6 +122,7 @@ class ShipmentProvider extends ChangeNotifier {
       print(e);
       print(stack);
       rethrow;
+
     }
   }
 }

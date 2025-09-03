@@ -117,10 +117,10 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
-     final variantsJson = json['variants'] as List<dynamic>? ?? [];
-  final List<Variant> variantsList = variantsJson
-      .map((v) => Variant.fromJson(v as Map<String, dynamic>))
-      .toList();
+    final variantsJson = json['variants'] as List<dynamic>? ?? [];
+    final List<Variant> variantsList = variantsJson
+        .map((v) => Variant.fromJson(v as Map<String, dynamic>))
+        .toList();
 
     // If product itself has no price, take from first variant
     double salePrice = (json['saleprice'] ?? 0).toDouble();
