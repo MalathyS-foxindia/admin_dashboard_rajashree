@@ -21,4 +21,19 @@ class SupabaseService {
       return null;
     }
   }
+  Future<List<Map<String, dynamic>>?> getWeeklySalesStats() async {
+    try {
+      final response = await supabase.rpc(
+        'get_weekly_sales_stats'
+        
+      );
+      if (response is List) {
+        return List<Map<String, dynamic>>.from(response);
+      }
+      return [];
+    } catch (e) {
+      print('Error calling get_weekly_sales_stats RPC: $e');
+      return null;
+    }
+  }
 }
