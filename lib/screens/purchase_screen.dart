@@ -221,37 +221,64 @@ class _AddPurchaseDialogState extends State<AddPurchaseDialog> {
     });
   }
 
+  /// ✅ Fixed: works for web + mobile
   Future<void> _pickAndUploadInvoiceImage() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
+
+    if (result != null) {
       final fileName =
-          "${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}";
+          "${DateTime.now().millisecondsSinceEpoch}_${result.files.first.name}";
+      final fileBytes = result.files.first.bytes;
 
       setState(() => isUploading = true);
 
       try {
         final storage = Supabase.instance.client.storage.from('invoice-images');
-        await storage.upload(
-          fileName,
-          file,
-          fileOptions: const FileOptions(upsert: true), // ✅ ensure overwrite
-        );
+
+        if (fileBytes != null) {
+          // ✅ Web (and also works on mobile if using `withData: true`)
+          await storage.uploadBinary(
+            fileName,
+            fileBytes,
+            fileOptions: const FileOptions(upsert: true),
+          );
+        } else {
+          // ✅ Mobile/Desktop only
+          final filePath = result.files.first.path;
+          if (filePath != null) {
+            final file = File(filePath);
+            await storage.upload(
+              fileName,
+              file,
+              fileOptions: const FileOptions(upsert: true),
+            );
+          } else {
+            throw "No file data available";
+          }
+        }
+
         final url = storage.getPublicUrl(fileName);
+        debugPrint("✅ Uploaded invoice URL: $url");
 
         setState(() {
           invoiceImageUrl = url;
           isUploading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Invoice image uploaded")),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("✅ Invoice image uploaded")),
+          );
+        }
       } catch (e) {
         setState(() => isUploading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Upload failed: $e")),
-        );
+        debugPrint("❌ Upload failed: $e");
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("❌ Upload failed: $e")),
+          );
+        }
       }
     }
   }
@@ -261,7 +288,6 @@ class _AddPurchaseDialogState extends State<AddPurchaseDialog> {
     final vendors = context.watch<VendorProvider>().vendors;
     final products = context.watch<ProductProvider>().items;
 
-    // 🔄 Grand Total calculation
     final total = items.fold<double>(
       0.0,
           (sum, item) =>
@@ -424,7 +450,7 @@ class _AddPurchaseDialogState extends State<AddPurchaseDialog> {
               invoiceDate,
               selectedVendorId!,
               total,
-              invoiceImageUrl,
+              invoiceImageUrl, // ✅ will not be null now
               items,
             );
 

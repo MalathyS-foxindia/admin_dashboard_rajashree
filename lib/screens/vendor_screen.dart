@@ -12,6 +12,8 @@ class VendorScreen extends StatefulWidget {
 }
 
 class _VendorScreenState extends State<VendorScreen> {
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -57,8 +59,7 @@ class _VendorScreenState extends State<VendorScreen> {
                 ),
                 TextFormField(
                   controller: contactCtrl,
-                  decoration:
-                  const InputDecoration(labelText: 'Contact Number'),
+                  decoration: const InputDecoration(labelText: 'Contact Number'),
                   keyboardType: TextInputType.phone,
                   validator: (v) =>
                   v == null || v.isEmpty ? 'Enter contact number' : null,
@@ -91,8 +92,7 @@ class _VendorScreenState extends State<VendorScreen> {
                 ),
                 TextFormField(
                   controller: bankAccountCtrl,
-                  decoration:
-                  const InputDecoration(labelText: "Bank Account"),
+                  decoration: const InputDecoration(labelText: "Bank Account"),
                 ),
                 TextFormField(
                   controller: ifscCtrl,
@@ -133,7 +133,7 @@ class _VendorScreenState extends State<VendorScreen> {
                   notes: notesCtrl.text,
                   isActive: true,
                   createdAt: DateTime.now(),
-                  updatedAt: null, // ✅ let DB trigger handle it
+                  updatedAt: null,
                 );
                 final success =
                 await context.read<VendorProvider>().addVendor(vendor);
@@ -163,6 +163,12 @@ class _VendorScreenState extends State<VendorScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<VendorProvider>();
 
+    // ✅ Apply search filter
+    final vendors = provider.vendors
+        .where((v) =>
+        v.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Vendors"),
@@ -183,39 +189,72 @@ class _VendorScreenState extends State<VendorScreen> {
       ),
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : provider.vendors.isEmpty
-          ? const Center(child: Text("No vendors available"))
-          : ListView.builder(
-        itemCount: provider.vendors.length,
-        itemBuilder: (ctx, i) {
-          final vendor = provider.vendors[i];
-          return ListTile(
-            title: Text(vendor.name),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("📞 ${vendor.contactNumber}"),
-                Text(
-                  "🕒 Updated: ${vendor.updatedAt != null ? vendor.updatedAt!.toLocal().toString().split(' ').first : "-"}",
-                  style: const TextStyle(
-                      fontSize: 12, color: Colors.grey),
-                ),
-              ],
+          : Column(
+        children: [
+          // 🔍 Search bar
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: "Search by Vendor Name",
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (val) =>
+                  setState(() => _searchQuery = val.trim()),
             ),
-            trailing: vendor.isActive
-                ? const Icon(Icons.check_circle, color: Colors.green)
-                : const Icon(Icons.block, color: Colors.red),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      VendorDetailsScreen(vendorId: vendor.vendor_id),
-                ),
-              );
-            },
-          );
-        },
+          ),
+          Expanded(
+            child: vendors.isEmpty
+                ? const Center(child: Text("No vendors available"))
+                : ListView.builder(
+              itemCount: vendors.length,
+              itemBuilder: (ctx, i) {
+                final vendor = vendors[i];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  child: ListTile(
+                    title: Text(
+                      vendor.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("📞 ${vendor.contactNumber}"),
+                        Text("📍 ${vendor.address}"),
+                        Text(
+                          "🕒 Updated: ${vendor.updatedAt != null ? vendor.updatedAt!.toLocal().toString().split(' ').first : "-"}",
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    trailing: Icon(
+                      vendor.isActive
+                          ? Icons.check_circle
+                          : Icons.block,
+                      color: vendor.isActive
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VendorDetailsScreen(
+                              vendorId: vendor.vendor_id),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
