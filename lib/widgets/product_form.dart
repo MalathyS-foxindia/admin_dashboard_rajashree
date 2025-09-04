@@ -4,8 +4,9 @@ import 'dart:convert';
 import '../models/products_model.dart';
 import '../providers/product_provider.dart';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart' as picker;
+import 'package:googleapis/vision/v1.dart' as vision;
 
 class ProductForm extends StatefulWidget {
   final Product? initial;
@@ -20,7 +21,7 @@ class _ProductFormState extends State<ProductForm> {
 
   File? _imageFile;
   String? _imageUrl;
-  final ImagePicker _picker = ImagePicker();
+  final picker.ImagePicker _picker = picker.ImagePicker();
 
   late TextEditingController _name;
   late TextEditingController _desc;
@@ -99,7 +100,7 @@ class _ProductFormState extends State<ProductForm> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery);
+    final picked = await _picker.pickImage(source: picker.ImageSource.gallery);
     if (picked != null) {
       setState(() => _imageFile = File(picked.path));
     }
@@ -343,7 +344,7 @@ class _ProductFormState extends State<ProductForm> {
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () async {
-                    final picked = await _picker.pickImage(source: ImageSource.gallery);
+                    final picked = await _picker.pickImage(source: picker.ImageSource.gallery);
                     if (picked != null) {
                       setState(() => m['imageFile'] = File(picked.path));
                     }

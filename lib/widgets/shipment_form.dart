@@ -120,20 +120,20 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                initialValue: _selectedProvider,
+                value: _selectedProvider,
                 decoration: const InputDecoration(
                   labelText: "Shipping Provider",
                   border: OutlineInputBorder(),
                 ),
                 items: _shippingProviders
                     .map((provider) => DropdownMenuItem(
-                          value: provider,
-                          child: Text(provider),
-                        ))
+                  value: provider,
+                  child: Text(provider),
+                ))
                     .toList(),
                 onChanged: (value) => setState(() => _selectedProvider = value),
                 validator: (value) =>
-                    value == null ? "Please select a provider" : null,
+                value == null ? "Please select a provider" : null,
               ),
               if (_trackingUrl.isNotEmpty) ...[
                 const SizedBox(height: 12),
