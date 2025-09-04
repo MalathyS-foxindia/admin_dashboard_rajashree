@@ -1,8 +1,8 @@
 import 'package:admin_dashboard_rajshree/models/order_model.dart';
 import 'package:admin_dashboard_rajshree/providers/order_provider.dart';
+import 'package:admin_dashboard_rajshree/screens/trackship_screen.dart';
 import 'package:admin_dashboard_rajshree/services/invoice_service.dart';
 import 'package:admin_dashboard_rajshree/services/excel_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,16 +16,15 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   String searchQuery = '';
   final Set<String> _selectedOrderIds = {};
-  bool _selectAllOnPage = false;
-
-  // Pagination
   int _page = 0;
   int _pageSize = 10;
-  final List<int> _pageSizeOptions = [5, 10, 20, 50];
+  final List<int> _pageSizeOptions = [10, 20, 50, 100];
 
-  // State flags
   bool _isGenerating = false;
   bool _isExporting = false;
+
+  /// 👇 controls whether Orders table or Shipment page is shown
+  bool _showShipmentPage = false;
 
   @override
   void initState() {
@@ -41,15 +40,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
     });
   }
 
-  List<Order> _applyFilterAndSort(List<Order> all) {
-    final filtered = all.where((order) {
+  List<Order> _applyFilter(List<Order> all) {
+    return all.where((order) {
       return order.customerName.toLowerCase().contains(searchQuery) ||
           order.mobileNumber.contains(searchQuery) ||
           order.source.toLowerCase().contains(searchQuery) ||
           order.orderId.toLowerCase().contains(searchQuery);
     }).toList();
-
-    return filtered;
   }
 
   List<Order> _pagedOrders(List<Order> allFiltered) {
@@ -57,33 +54,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (start >= allFiltered.length) return [];
     final end = (_page + 1) * _pageSize;
     return allFiltered.sublist(start, end.clamp(0, allFiltered.length));
-  }
-
-  void _toggleSelectAllOnPage(List<Order> pageOrders, bool? value) {
-    setState(() {
-      _selectAllOnPage = value ?? false;
-      if (_selectAllOnPage) {
-        for (var o in pageOrders) {
-          _selectedOrderIds.add(o.orderId);
-        }
-      } else {
-        for (var o in pageOrders) {
-          _selectedOrderIds.remove(o.orderId);
-        }
-      }
-    });
-  }
-
-  void _toggleOrderSelection(String orderId, bool? value, List<Order> pageOrders) {
-    setState(() {
-      if (value ?? false) {
-        _selectedOrderIds.add(orderId);
-      } else {
-        _selectedOrderIds.remove(orderId);
-      }
-      _selectAllOnPage =
-          pageOrders.every((o) => _selectedOrderIds.contains(o.orderId));
-    });
   }
 
   Future<void> _exportOrdersToExcel() async {
@@ -131,17 +101,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     for (String orderId in _selectedOrderIds) {
       final jsonData = await orderProvider.fetchOrderJson(orderId);
-
       if (jsonData == null) {
         allSuccess = false;
-        if (kDebugMode) {
-          print("❌ Order $orderId: No JSON data returned");
-        }
         continue;
-      }
-
-      if (kDebugMode) {
-        print('Generating invoice for order: $orderId');
       }
 
       final invoiceData =
@@ -150,12 +112,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       final success =
           await orderProvider.uploadInvoiceToSupabaseStorage(invoiceData);
 
-      if (!success) {
-        allSuccess = false;
-        if (kDebugMode) {
-          print("❌ Order $orderId: Failed to upload invoice PDF");
-        }
-      }
+      if (!success) allSuccess = false;
     }
 
     setState(() => _isGenerating = false);
@@ -172,49 +129,49 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     setState(() {
       _selectedOrderIds.clear();
-      _selectAllOnPage = false;
     });
   }
 
   Future<void> _showOrderDetails(BuildContext context, Order order) async {
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
     final items = await orderProvider.fetchOrderItems(order.orderId.toString());
-
-    showModalBottomSheet(
+    print(items);
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        builder: (_, controller) => Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ListView(
-            controller: controller,
-            children: [
-              Text("Order ID: ${order.orderId}", style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text("Customer: ${order.customerName}"),
-              Text("Mobile: ${order.mobileNumber}"),
-              Text("Address: ${order.address}, ${order.state}"),
-              Text("Amount: ₹${order.totalAmount.toStringAsFixed(2)} (Shipping: ₹${order.shippingAmount})"),
-              Text("Source: ${order.source} | Guest: ${order.isGuest ? 'Yes' : 'No'}"),
-              Text("Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
-              if (order.orderNote.isNotEmpty) Text("Note: ${order.orderNote}"),
-              const Divider(),
-              const Text("Items", style: TextStyle(fontWeight: FontWeight.bold)),
-              ...items.map((item) {
-                final isCombo = item.isCombo;
-                final variantName = item.productVariants?['variant_name'] ?? 'N/A';
-                final variantPrice = item.productVariants?['saleprice']?.toString() ?? '0';
-
-                return ListTile(
-                  leading: const Icon(Icons.shopping_cart),
-                  title: Text("$variantName - ₹$variantPrice"),
-                  subtitle: Text("Qty: ${item.quantity} | Combo: ${isCombo ? 'Yes' : 'No'}"),
-                );
-              }),
-            ],
+      builder: (_) => AlertDialog(
+        title: Text("Order ${order.orderId}"),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Customer: ${order.customerName}"),
+                Text("Mobile: ${order.mobileNumber}"),
+                Text("Address: ${order.address}, ${order.state}"),
+                Text("Amount: ₹${order.totalAmount} (Shipping: ₹${order.shippingAmount})"),
+                Text("Source: ${order.source} | Guest: ${order.isGuest ? 'Yes' : 'No'}"),
+                Text("Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
+                if (order.orderNote.isNotEmpty) Text("Note: ${order.orderNote}"),
+                const Divider(),
+                const Text("Items", style: TextStyle(fontWeight: FontWeight.bold)),
+                ...items.map((item) {
+                  final sku = item.productVariants?['sku'] ?? 'N/A';
+                  final variantName = item.productVariants?['variant_name'] ?? 'N/A';
+                  final variantPrice = item.productVariants?['saleprice']?.toString() ?? '0';
+                  return ListTile(
+                    dense: true,
+                    title: Text("$sku - $variantName - ₹$variantPrice"),
+                    subtitle: Text("Qty: ${item.quantity}"),
+                  );
+                }),
+              ],
+            ),
           ),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Close"))
+        ],
       ),
     );
   }
@@ -222,161 +179,166 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   Widget build(BuildContext context) {
     final orderProvider = Provider.of<OrderProvider>(context);
-    final allOrders = _applyFilterAndSort(orderProvider.orders);
+    final allOrders = _applyFilter(orderProvider.orders);
     final pageOrders = _pagedOrders(allOrders);
     final totalPages =
         (allOrders.length / _pageSize).ceil().clamp(1, double.infinity).toInt();
 
-    final isAllSelectedOnPage =
-        pageOrders.isNotEmpty && pageOrders.every((o) => _selectedOrderIds.contains(o.orderId));
-    if (isAllSelectedOnPage != _selectAllOnPage) {
-      _selectAllOnPage = isAllSelectedOnPage;
-    }
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Orders')),
-      body: orderProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(children: [
-                // Top controls row
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+      appBar: AppBar(
+        title: Text(_showShipmentPage ? 'Shipment Tracking' : 'Orders'),
+        leading: _showShipmentPage
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => setState(() => _showShipmentPage = false),
+              )
+            : null,
+      ),
+      body: _showShipmentPage
+          ? const TrackShipScreen()
+          : orderProvider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
                   children: [
-                    SizedBox(
-                      width: 400,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.2),
-                              spreadRadius: 1,
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 300,
+                            child: TextField(
+                              onChanged: filterOrders,
+                              decoration: const InputDecoration(
+                                prefixIcon: Icon(Icons.search),
+                                hintText: 'Search by name, mobile, source, order id',
+                                border: OutlineInputBorder(),
+                              ),
                             ),
-                          ],
-                        ),
-                        child: TextField(
-                          onChanged: filterOrders,
-                          decoration: const InputDecoration(
-                            hintText: 'Search by name, mobile, source, order id',
-                            prefixIcon: Icon(Icons.search),
-                            border: InputBorder.none,
                           ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: _isGenerating ? null : () => _generateInvoices(context),
+                            icon: _isGenerating
+                                ? const SizedBox(
+                                    width: 16, height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.picture_as_pdf),
+                            label: const Text('Generate Invoice'),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: (_selectedOrderIds.isNotEmpty && !_isExporting)
+                                ? _exportOrdersToExcel
+                                : null,
+                            icon: _isExporting
+                                ? const SizedBox(
+                                    width: 16, height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.file_download),
+                            label: Text('Export Excel (${_selectedOrderIds.length})'),
+                          ),
+                          const Spacer(),
+                          const Text("Rows per page: "),
+                          DropdownButton<int>(
+                            value: _pageSize,
+                            items: _pageSizeOptions
+                                .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                                .toList(),
+                            onChanged: (v) => setState(() {
+                              _pageSize = v!;
+                              _page = 0;
+                            }),
+                          )
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          showCheckboxColumn: true,
+                          columns: const [
+                            DataColumn(label: Text("Order ID")),
+                            DataColumn(label: Text("Customer")),
+                            DataColumn(label: Text("Mobile")),
+                            DataColumn(label: Text("Amount")),
+                            DataColumn(label: Text("Order Status")),
+                            DataColumn(label: Text("Shipment Status")),
+                            DataColumn(label: Text("Invoice")),
+                            DataColumn(label: Text("Date")),
+                          ],
+                          rows: pageOrders.map((order) {
+                            final isSelected = _selectedOrderIds.contains(order.orderId);
+                            return DataRow(
+                              selected: isSelected,
+                              onSelectChanged: (v) {
+                                setState(() {
+                                  if (v == true) {
+                                    _selectedOrderIds.add(order.orderId);
+                                  } else {
+                                    _selectedOrderIds.remove(order.orderId);
+                                  }
+                                });
+                              },
+                              cells: [
+                                DataCell(
+                                  InkWell(
+                                    child: Text(order.orderId,
+                                        style: const TextStyle(color: Colors.blue)),
+                                    onTap: () => _showOrderDetails(context, order),
+                                  ),
+                                ),
+                                DataCell(Text(order.customerName)),
+                                DataCell(Text(order.mobileNumber)),
+                                DataCell(Text("₹${order.totalAmount.toStringAsFixed(2)}")),
+                                DataCell(Text(order.orderStatus)),
+                                DataCell(
+                                  InkWell(
+                                    child: Text(order.shipmentStatus ?? "N/A",
+                                        style: const TextStyle(color: Colors.blue)),
+                                    onTap: () {
+                                      /// 👇 instead of push, toggle to shipment screen
+                                      setState(() {
+                                        _showShipmentPage = true;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                DataCell(order.invoiceUrl != null
+                                    ? InkWell(
+                                        child: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                                        onTap: () {
+                                          if (order.invoiceUrl != null) {
+                                            // TODO: open pdf with url_launcher
+                                          }
+                                        },
+                                      )
+                                    : const Text("N/A")),
+                                DataCell(Text(order.orderDate)),
+                              ],
+                            );
+                          }).toList(),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: _isGenerating ? null : () => _generateInvoices(context),
-                      icon: _isGenerating
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.picture_as_pdf),
-                      label: const Text('Generate Invoice'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: (_selectedOrderIds.isNotEmpty && !_isExporting)
-                          ? _exportOrdersToExcel
-                          : null,
-                      icon: _isExporting
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.file_download),
-                      label: Text('Export Excel (${_selectedOrderIds.length})'),
-                    ),
-                    const Spacer(),
-                    const Text('Page size:'),
-                    const SizedBox(width: 8),
-                    DropdownButton<int>(
-                      value: _pageSize,
-                      items: _pageSizeOptions
-                          .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setState(() {
-                          _pageSize = v;
-                          _page = 0;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _selectAllOnPage,
-                      onChanged: (v) => _toggleSelectAllOnPage(pageOrders, v),
-                    ),
-                    const Text('Select all on this page'),
-                    const Spacer(),
-                    Text(
-                      'Showing ${(_page * _pageSize) + 1}-${(_page * _pageSize) + pageOrders.length} of ${allOrders.length}',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: pageOrders.length,
-                    itemBuilder: (context, index) {
-                      final order = pageOrders[index];
-                      final isSelected = _selectedOrderIds.contains(order.orderId);
-
-                      return Card(
-                        child: ListTile(
-                          leading: Checkbox(
-                            value: isSelected,
-                            onChanged: (v) => _toggleOrderSelection(order.orderId, v, pageOrders),
-                          ),
-                          title: Text('Order ID: ${order.orderId}'),
-                          subtitle: Text(
-                              '${order.customerName} • ₹${order.totalAmount.toStringAsFixed(2)}'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.visibility),
-                            onPressed: () => _showOrderDetails(context, order),
-                          ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                          icon: const Icon(Icons.chevron_left),
                         ),
-                      );
-                    },
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      onPressed: _page > 0 ? () => setState(() => _page--) : null,
-                      icon: const Icon(Icons.chevron_left),
+                        Text('Page ${_page + 1} / $totalPages'),
+                        IconButton(
+                          onPressed: (_page + 1) < totalPages
+                              ? () => setState(() => _page++)
+                              : null,
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
                     ),
-                    Text('Page ${_page + 1} / $totalPages'),
-                    IconButton(
-                      onPressed: (_page + 1) < totalPages
-                          ? () => setState(() => _page++)
-                          : null,
-                      icon: const Icon(Icons.chevron_right),
-                    ),
-                    const SizedBox(width: 16),
-                    TextButton(
-                      onPressed: () => setState(() {
-                        _selectedOrderIds.clear();
-                      }),
-                      child: const Text('Clear Selection'),
-                    )
                   ],
                 ),
-              ]),
-            ),
     );
   }
 }

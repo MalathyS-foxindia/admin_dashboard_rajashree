@@ -3,7 +3,7 @@ import 'package:admin_dashboard_rajshree/models/purchase_model.dart';
 import 'package:admin_dashboard_rajshree/providers/purchase_provider.dart';
 import 'package:admin_dashboard_rajshree/providers/vendor_provider.dart';
 import 'package:admin_dashboard_rajshree/providers/product_provider.dart';
-import 'package:admin_dashboard_rajshree/services/file_service.dart';
+//import 'package:admin_dashboard_rajshree/services/file_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -165,13 +165,13 @@ class _PurchasePageState extends State<PurchasePage> {
                                   icon: const Icon(Icons.download,
                                       color: Colors.blue),
                                   onPressed: () {
-                                    FileService.downloadAndSaveImage(
-                                      context,
-                                      purchase.invoiceImage!,
-                                      fileName:
-                                      "invoice_${purchase.invoiceNo}.jpg",
-                                    );
-                                  },
+                                  //   FileService.downloadAndSaveImage(
+                                  //     context,
+                                  //     purchase.invoiceImage!,
+                                  //     fileName:
+                                  //     "invoice_${purchase.invoiceNo}.jpg",
+                                  //   );
+                                   },
                                 )
                               ],
                             )
