@@ -23,7 +23,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
   }
 
   void _openPaymentDialog() {
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
     final purchaseIdCtrl = TextEditingController();
     final paidCtrl = TextEditingController();
     final balanceCtrl = TextEditingController();
@@ -33,7 +33,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text("Record Payment"),
         content: Form(
-          key: _formKey,
+          key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -63,7 +63,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
               child: const Text("Cancel")),
           ElevatedButton(
             onPressed: () async {
-              if (_formKey.currentState?.validate() ?? false) {
+              if (formKey.currentState?.validate() ?? false) {
                 final txn = VendorTransaction(
                   transactionId: 0,
                   vendorId: widget.vendorId,
