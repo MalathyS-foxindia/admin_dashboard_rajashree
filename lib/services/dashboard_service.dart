@@ -36,4 +36,18 @@ class SupabaseService {
       return null;
     }
   }
+    Future<List<Map<String, dynamic>>> fetchDailySkuSummary(DateTime date) async {
+      print(date.toIso8601String().split('T')[0]);
+  final response = await supabase.rpc(
+    'daily_sku_summary_with_stock',
+    params: {'p_date': date.toIso8601String().split('T')[0]},
+  );
+
+if (response == null) {
+    throw Exception("❌ RPC returned null");
+  }
+
+  final data = response as List<dynamic>;
+  return data.map((e) => Map<String, dynamic>.from(e)).toList();
+}
 }

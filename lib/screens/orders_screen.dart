@@ -1,10 +1,13 @@
+// lib/screens/orders_screen.dart
 import 'package:admin_dashboard_rajshree/models/order_model.dart';
 import 'package:admin_dashboard_rajshree/providers/order_provider.dart';
 import 'package:admin_dashboard_rajshree/screens/trackship_screen.dart';
 import 'package:admin_dashboard_rajshree/services/invoice_service.dart';
 import 'package:admin_dashboard_rajshree/services/excel_service.dart';
+import 'package:admin_dashboard_rajshree/services/dashboard_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -22,15 +25,159 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   bool _isGenerating = false;
   bool _isExporting = false;
-
-  /// 👇 controls whether Orders table or Shipment page is shown
   bool _showShipmentPage = false;
+
+  DateTime _selectedDate = DateTime.now();
+  List<Map<String, dynamic>> _skuSummary = [];
+  final SupabaseService _supabaseService = SupabaseService();
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() =>
         Provider.of<OrderProvider>(context, listen: false).fetchOrders());
+    _loadSkuSummary();
+  }
+
+  Future<void> _loadSkuSummary() async {
+    print("Loading SKU summary for date: $_selectedDate");
+    final summary = await _supabaseService.fetchDailySkuSummary(_selectedDate);
+    print("Fetched SKU summary: $summary");
+    setState(() => _skuSummary = List<Map<String, dynamic>>.from(summary));
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2023, 1, 1),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      print("selected date: $picked");
+      setState(() => _selectedDate = picked);
+      await _loadSkuSummary();
+    }
+  }
+
+   void _showSkuSummaryDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text("📦 Daily SKU Sales Summary"),
+              content: SizedBox(
+                width: 700,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime.now(),
+                            );
+                            if (picked != null) {
+                              setState(() => _selectedDate = picked);
+                              await _loadSkuSummary();
+                              // refresh dialog UI
+                              setDialogState(() {});
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_today),
+                          label: Text("${_selectedDate.toLocal()}".split(' ')[0]),
+                        ),
+                        const Spacer(),
+                        ElevatedButton.icon(
+                          onPressed: _skuSummary.isEmpty
+                              ? null
+                              : () async {
+                                  final success =
+                                      await ExcelService.exportSkuSummaryToExcel(
+                                    _skuSummary,
+                                    _selectedDate,
+                                  );
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(success
+                                            ? 'SKU Summary exported!'
+                                            : 'Failed to export.'),
+                                      ),
+                                    );
+                                  }
+                                },
+                          icon: const Icon(Icons.file_download),
+                          label: const Text("Export Excel"),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 400,
+                      child: _skuSummary.isEmpty
+                          ? const Center(child: Text("No sales summary available"))
+                          : SingleChildScrollView(
+                              scrollDirection: Axis.vertical,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: DataTable(
+                                  headingRowColor:
+                                      WidgetStateProperty.resolveWith(
+                                          (states) => Colors.grey[200]),
+                                  columns: const [
+                                    DataColumn(label: Text("SKU")),
+                                    DataColumn(label: Text("Variant")),
+                                    DataColumn(label: Text("Qty Sold")),
+                                    DataColumn(label: Text("Current Stock")),
+                                  ],
+                                  rows: _skuSummary.map((sku) {
+                                    final currentStock = int.tryParse(sku['current_stock']?.toString() ?? '0') ?? 0;
+                                    final totalQty = int.tryParse(sku['total_qty']?.toString() ?? '0') ?? 0;
+                                    return DataRow(
+                                      cells: [
+                                        DataCell(
+                                            Text((sku['sku'] ?? 'N/A').toString())),
+                                        DataCell(Text(
+                                            (sku['variant_name'] ?? 'N/A')
+                                                .toString())),
+                                       DataCell(Text(totalQty.toString())),
+                                        DataCell(
+                                          Text(
+                                            currentStock.toString(),
+                                            style: TextStyle(
+                                              color: currentStock < totalQty ? Colors.red : Colors.black,
+                                              fontWeight: currentStock < totalQty ? FontWeight.bold : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Close"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void filterOrders(String query) {
@@ -135,7 +282,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Future<void> _showOrderDetails(BuildContext context, Order order) async {
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
     final items = await orderProvider.fetchOrderItems(order.orderId.toString());
-    print(items);
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -149,8 +296,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 Text("Customer: ${order.customerName}"),
                 Text("Mobile: ${order.mobileNumber}"),
                 Text("Address: ${order.address}, ${order.state}"),
-                Text("Amount: ₹${order.totalAmount} (Shipping: ₹${order.shippingAmount})"),
-                Text("Source: ${order.source} | Guest: ${order.isGuest ? 'Yes' : 'No'}"),
+                Text(
+                    "Amount: ₹${order.totalAmount} (Shipping: ₹${order.shippingAmount})"),
+                Text(
+                    "Source: ${order.source} | Guest: ${order.isGuest ? 'Yes' : 'No'}"),
                 Text("Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
                 if (order.orderNote.isNotEmpty) Text("Note: ${order.orderNote}"),
                 const Divider(),
@@ -158,7 +307,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 ...items.map((item) {
                   final sku = item.productVariants?['sku'] ?? 'N/A';
                   final variantName = item.productVariants?['variant_name'] ?? 'N/A';
-                  final variantPrice = item.productVariants?['saleprice']?.toString() ?? '0';
+                  final variantPrice =
+                      item.productVariants?['saleprice']?.toString() ?? '0';
                   return ListTile(
                     dense: true,
                     title: Text("$sku - $variantName - ₹$variantPrice"),
@@ -200,6 +350,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
+                    /// Top controls row
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
@@ -217,11 +368,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
-                            onPressed: _isGenerating ? null : () => _generateInvoices(context),
+                            onPressed: _isGenerating
+                                ? null
+                                : () => _generateInvoices(context),
                             icon: _isGenerating
                                 ? const SizedBox(
-                                    width: 16, height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2))
+                                    width: 16,
+                                    height: 16,
+                                    child:
+                                        CircularProgressIndicator(strokeWidth: 2))
                                 : const Icon(Icons.picture_as_pdf),
                             label: const Text('Generate Invoice'),
                           ),
@@ -232,17 +387,26 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 : null,
                             icon: _isExporting
                                 ? const SizedBox(
-                                    width: 16, height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2))
+                                    width: 16,
+                                    height: 16,
+                                    child:
+                                        CircularProgressIndicator(strokeWidth: 2))
                                 : const Icon(Icons.file_download),
                             label: Text('Export Excel (${_selectedOrderIds.length})'),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: _showSkuSummaryDialog,
+                            icon: const Icon(Icons.inventory),
+                            label: const Text("SKU Summary"),
                           ),
                           const Spacer(),
                           const Text("Rows per page: "),
                           DropdownButton<int>(
                             value: _pageSize,
                             items: _pageSizeOptions
-                                .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                                .map((s) =>
+                                    DropdownMenuItem(value: s, child: Text('$s')))
                                 .toList(),
                             onChanged: (v) => setState(() {
                               _pageSize = v!;
@@ -252,80 +416,103 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ],
                       ),
                     ),
+
+                    /// Orders Table
                     Expanded(
                       child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          showCheckboxColumn: true,
-                          columns: const [
-                            DataColumn(label: Text("Order ID")),
-                            DataColumn(label: Text("Customer")),
-                            DataColumn(label: Text("Mobile")),
-                            DataColumn(label: Text("Amount")),
-                            DataColumn(label: Text("Order Status")),
-                            DataColumn(label: Text("Shipment Status")),
-                            DataColumn(label: Text("Invoice")),
-                            DataColumn(label: Text("Date")),
-                          ],
-                          rows: pageOrders.map((order) {
-                            final isSelected = _selectedOrderIds.contains(order.orderId);
-                            return DataRow(
-                              selected: isSelected,
-                              onSelectChanged: (v) {
-                                setState(() {
-                                  if (v == true) {
-                                    _selectedOrderIds.add(order.orderId);
-                                  } else {
-                                    _selectedOrderIds.remove(order.orderId);
-                                  }
-                                });
-                              },
-                              cells: [
-                                DataCell(
-                                  InkWell(
-                                    child: Text(order.orderId,
-                                        style: const TextStyle(color: Colors.blue)),
-                                    onTap: () => _showOrderDetails(context, order),
+                        scrollDirection: Axis.vertical,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            showCheckboxColumn: true,
+                            columns: const [
+                              DataColumn(label: Text("Order ID")),
+                              DataColumn(label: Text("Customer")),
+                              DataColumn(label: Text("Mobile")),
+                              DataColumn(label: Text("Amount")),
+                              DataColumn(label: Text("Order Status")),
+                              DataColumn(label: Text("Shipment Status")),
+                              DataColumn(label: Text("Invoice")),
+                              DataColumn(label: Text("Date")),
+                            ],
+                            rows: pageOrders.map((order) {
+                              final isSelected =
+                                  _selectedOrderIds.contains(order.orderId);
+                              return DataRow(
+                                selected: isSelected,
+                                onSelectChanged: (v) {
+                                  setState(() {
+                                    if (v == true) {
+                                      _selectedOrderIds.add(order.orderId);
+                                    } else {
+                                      _selectedOrderIds.remove(order.orderId);
+                                    }
+                                  });
+                                },
+                                cells: [
+                                  DataCell(
+                                    InkWell(
+                                      child: Text(order.orderId,
+                                          style:
+                                              const TextStyle(color: Colors.blue)),
+                                      onTap: () => _showOrderDetails(context, order),
+                                    ),
                                   ),
-                                ),
-                                DataCell(Text(order.customerName)),
-                                DataCell(Text(order.mobileNumber)),
-                                DataCell(Text("₹${order.totalAmount.toStringAsFixed(2)}")),
-                                DataCell(Text(order.orderStatus)),
-                                DataCell(
-                                  InkWell(
-                                    child: Text(order.shipmentStatus ?? "N/A",
-                                        style: const TextStyle(color: Colors.blue)),
-                                    onTap: () {
-                                      /// 👇 instead of push, toggle to shipment screen
-                                      setState(() {
-                                        _showShipmentPage = true;
-                                      });
-                                    },
+                                  DataCell(Text(order.customerName)),
+                                  DataCell(Text(order.mobileNumber)),
+                                  DataCell(Text(
+                                      "₹${order.totalAmount.toStringAsFixed(2)}")),
+                                  DataCell(Text(order.orderStatus)),
+                                  DataCell(
+                                    InkWell(
+                                      child: Text(order.shipmentStatus ?? "N/A",
+                                          style: const TextStyle(color: Colors.blue)),
+                                      onTap: () {
+                                        setState(() {
+                                          _showShipmentPage = true;
+                                        });
+                                      },
+                                    ),
                                   ),
-                                ),
-                                DataCell(order.invoiceUrl != null
-                                    ? InkWell(
-                                        child: const Icon(Icons.picture_as_pdf, color: Colors.red),
-                                        onTap: () {
-                                          if (order.invoiceUrl != null) {
-                                            // TODO: open pdf with url_launcher
-                                          }
-                                        },
-                                      )
-                                    : const Text("N/A")),
-                                DataCell(Text(order.orderDate)),
-                              ],
-                            );
-                          }).toList(),
+                                  DataCell(order.invoiceUrl != null
+                                      ? InkWell(
+                                          child: const Icon(Icons.picture_as_pdf,
+                                              color: Colors.red),
+                                          onTap: () async {
+                                            final url =
+                                                Uri.parse(order.invoiceUrl!);
+                                            if (await canLaunchUrl(url)) {
+                                              await launchUrl(url,
+                                                  mode: LaunchMode
+                                                      .externalApplication);
+                                            } else {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                    content: Text(
+                                                        'Could not open PDF')),
+                                              );
+                                            }
+                                          },
+                                        )
+                                      : const Text("N/A")),
+                                  DataCell(Text(order.orderDate)),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
                     ),
+
+                    /// Pagination controls
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         IconButton(
-                          onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                          onPressed: _page > 0
+                              ? () => setState(() => _page--)
+                              : null,
                           icon: const Icon(Icons.chevron_left),
                         ),
                         Text('Page ${_page + 1} / $totalPages'),
