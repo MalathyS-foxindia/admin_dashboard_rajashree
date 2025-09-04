@@ -134,9 +134,7 @@ class _PurchasePageState extends State<PurchasePage> {
                           DataCell(Text(purchase.invoiceNo)),
                           DataCell(Text(purchase.vendordetails.name)),
                           DataCell(Text(
-                            purchase.invoiceDate != null
-                                ? "${purchase.invoiceDate!.day}-${purchase.invoiceDate!.month}-${purchase.invoiceDate!.year}"
-                                : "-",
+                            "${purchase.invoiceDate!.day}-${purchase.invoiceDate!.month}-${purchase.invoiceDate!.year}",
                           )),
                           DataCell(
                             purchase.invoiceImage != null
@@ -308,7 +306,7 @@ class _AddPurchaseDialogState extends State<AddPurchaseDialog> {
                 v == null || v.isEmpty ? "Enter Invoice No" : null,
               ),
               DropdownButtonFormField<int>(
-                value: selectedVendorId,
+                initialValue: selectedVendorId,
                 hint: const Text("Select Vendor"),
                 items: vendors.map((v) {
                   return DropdownMenuItem<int>(
@@ -367,7 +365,7 @@ class _AddPurchaseDialogState extends State<AddPurchaseDialog> {
                     Expanded(
                       flex: 3,
                       child: DropdownButtonFormField(
-                        value: item["variant"],
+                        initialValue: item["variant"],
                         hint: const Text("Select SKU"),
                         items: products.expand((p) => p.variants ?? []).map((v) {
                           return DropdownMenuItem(
@@ -422,7 +420,7 @@ class _AddPurchaseDialogState extends State<AddPurchaseDialog> {
                     ),
                   ],
                 );
-              }).toList(),
+              }),
               TextButton.icon(
                 onPressed: _addItemRow,
                 icon: const Icon(Icons.add),
