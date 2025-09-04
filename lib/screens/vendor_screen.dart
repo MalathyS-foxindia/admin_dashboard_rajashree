@@ -21,7 +21,7 @@ class _VendorScreenState extends State<VendorScreen> {
   }
 
   void _openAddVendorDialog() {
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
     final addressCtrl = TextEditingController();
     final contactCtrl = TextEditingController();
@@ -40,7 +40,7 @@ class _VendorScreenState extends State<VendorScreen> {
         title: const Text('Add Vendor'),
         content: SingleChildScrollView(
           child: Form(
-            key: _formKey,
+            key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -117,7 +117,7 @@ class _VendorScreenState extends State<VendorScreen> {
               child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
-              if (_formKey.currentState?.validate() ?? false) {
+              if (formKey.currentState?.validate() ?? false) {
                 final vendor = Vendor(
                   vendor_id: 0,
                   name: nameCtrl.text,
