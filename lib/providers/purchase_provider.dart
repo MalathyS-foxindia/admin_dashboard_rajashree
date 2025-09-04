@@ -50,7 +50,7 @@ class PurchaseProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ Add Purchase + Items + update stock + create vendor transaction
+  /// ✅ Add Purchase + Items + update stock + vendor transaction
   Future<bool> addPurchase(
       String invoiceNo,
       DateTime invoiceDate,
@@ -60,17 +60,23 @@ class PurchaseProvider with ChangeNotifier {
       List<Map<String, dynamic>> items,
       ) async {
     try {
+      // ✅ Build request body dynamically
+      final purchaseBody = {
+        'invoice_no': invoiceNo,
+        'invoice_date': invoiceDate.toIso8601String(),
+        'vendor_id': vendorId,
+        'amount': totalAmount,
+      };
+
+      if (invoiceImage != null && invoiceImage.isNotEmpty) {
+        purchaseBody['invoice_image'] = invoiceImage;
+      }
+
       // 1️⃣ Insert purchase
       final purchaseRes = await http.post(
         Uri.parse('$_supabaseUrl/rest/v1/purchase'),
         headers: _headers(),
-        body: jsonEncode({
-          'invoice_no': invoiceNo,
-          'invoice_date': invoiceDate.toIso8601String(),
-          'vendor_id': vendorId,
-          'amount': totalAmount,
-          'invoice_image': invoiceImage,
-        }),
+        body: jsonEncode(purchaseBody),
       );
 
       if (purchaseRes.statusCode != 201) {
@@ -82,21 +88,18 @@ class PurchaseProvider with ChangeNotifier {
       final purchaseData = jsonDecode(purchaseRes.body) as List;
       final purchaseId = purchaseData.first['purchase_id'];
 
-      // 2️⃣ Insert purchase items + update stock
+      // 2️⃣ Insert purchase items
       for (final item in items) {
         try {
-          final int qty = item['quantity'] ?? 0;
-          final double unitPrice = item['cost'] ?? 0.0;
-          final double lineTotal = qty * unitPrice;
-
           final itemRes = await http.post(
             Uri.parse('$_supabaseUrl/rest/v1/purchase_items'),
             headers: _headers(),
             body: jsonEncode({
               'purchase_id': purchaseId,
               'variant_id': item['variant'],
-              'quantity': qty,
-              'cost_price': lineTotal, // ✅ store total value
+              'quantity': item['quantity'],
+              'cost_price': item['unitPrice'] *
+                  item['quantity'], // ✅ total cost (not unit price only)
             }),
           );
 
@@ -116,7 +119,7 @@ class PurchaseProvider with ChangeNotifier {
             final data = jsonDecode(stockRes.body) as List;
             final currentStock =
                 (data.isNotEmpty ? (data.first['stock'] as num?) : 0) ?? 0;
-            final newStock = currentStock + qty;
+            final newStock = currentStock + (item['quantity'] as int);
 
             final updateRes = await http.patch(
               Uri.parse(

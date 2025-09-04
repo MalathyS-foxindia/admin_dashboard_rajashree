@@ -1,32 +1,33 @@
-// lib/screens/login_screen.dart
+// lib/screens/forgot_password_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:admin_dashboard_rajshree/screens/dashboard_screen.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _email = TextEditingController();
-  final TextEditingController _password = TextEditingController();
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _newPwdCtrl = TextEditingController();
   bool _loading = false;
 
-  Future<void> _login() async {
-    final email = _email.text.trim();
-    final pass = _password.text;
+  Future<void> _resetPassword() async {
+    final email = _emailCtrl.text.trim();
+    final newPwd = _newPwdCtrl.text.trim();
 
-    if (email.isEmpty || pass.isEmpty) {
+    if (email.isEmpty || newPwd.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email & password')),
+        const SnackBar(content: Text("Please enter email & new password")),
       );
       return;
     }
+    debugPrint("📩 ForgotPassword submitted: $email");
+    Navigator.pushNamed(context, '/reset-password', arguments: {'email': email});
 
     setState(() => _loading = true);
 
@@ -34,35 +35,29 @@ class _LoginScreenState extends State<LoginScreen> {
       final supabaseUrl = dotenv.env['SUPABASE_URL']!;
       final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
 
-      final response = await http.get(
-        Uri.parse(
-            '$supabaseUrl/rest/v1/users?email=eq.$email&select=email,password'),
+      final response = await http.patch(
+        Uri.parse('$supabaseUrl/rest/v1/users?email=eq.$email'),
         headers: {
           'apikey': anonKey,
           'Authorization': 'Bearer $anonKey',
+          'Content-Type': 'application/json',
         },
+        body: jsonEncode({'password': newPwd}),
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List;
-        if (data.isNotEmpty && data.first['password'] == pass) {
-          // ✅ Success → Go to Dashboard
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ Invalid email or password')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("✅ Password updated! Please login.")),
+        );
+        Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Login failed: ${response.body}')),
+          SnackBar(content: Text("❌ Failed: ${response.body}")),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
+        SnackBar(content: Text("❌ Error: $e")),
       );
     } finally {
       setState(() => _loading = false);
@@ -96,15 +91,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius:
                           BorderRadius.vertical(top: Radius.circular(16)),
                           gradient: LinearGradient(
-                              colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)]),
+                            colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)],
+                          ),
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset('images/logo.png',
-                                height: 56, width: 56, fit: BoxFit.contain),
+                                height: 56,
+                                width: 56,
+                                fit: BoxFit.contain),
                             const SizedBox(height: 10),
-                            Text('Rajshree Fashion Admin',
+                            Text('Reset Password',
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleMedium!
@@ -117,18 +115,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Column(
                           children: [
                             TextField(
-                              controller: _email,
-                              keyboardType: TextInputType.emailAddress,
+                              controller: _emailCtrl,
                               decoration: const InputDecoration(
                                   labelText: 'Email',
                                   prefixIcon: Icon(Icons.email)),
                             ),
                             const SizedBox(height: 12),
                             TextField(
-                              controller: _password,
+                              controller: _newPwdCtrl,
                               obscureText: true,
                               decoration: const InputDecoration(
-                                  labelText: 'Password',
+                                  labelText: 'New Password',
                                   prefixIcon: Icon(Icons.lock)),
                             ),
                             const SizedBox(height: 20),
@@ -142,22 +139,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                     height: 20,
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2))
-                                    : const Icon(Icons.login),
-                                label: const Text('Login'),
-                                onPressed: _loading ? null : _login,
+                                    : const Icon(Icons.refresh),
+                                label: const Text('Reset Password'),
+                                onPressed: _loading ? null : _resetPassword,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                    context, '/forgot-password');
-                              },
-                              child: const Text("Forgot Password?"),
                             ),
                           ],
                         ),
-                      ),
+                      )
                     ],
                   ),
                 ),

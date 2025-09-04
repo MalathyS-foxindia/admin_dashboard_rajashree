@@ -1,68 +1,72 @@
-// lib/screens/login_screen.dart
+// lib/screens/reset_password_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:admin_dashboard_rajshree/screens/dashboard_screen.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class ResetPasswordScreen extends StatefulWidget {
+  final String email;
+  const ResetPasswordScreen({super.key, required this.email});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _email = TextEditingController();
-  final TextEditingController _password = TextEditingController();
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+  final TextEditingController _newPwdCtrl = TextEditingController();
+  final TextEditingController _confirmNewPwdCtrl = TextEditingController();
   bool _loading = false;
 
-  Future<void> _login() async {
-    final email = _email.text.trim();
-    final pass = _password.text;
+  Future<void> _reset() async {
+    final newPwd = _newPwdCtrl.text.trim();
+    final confirmNewPwd = _confirmNewPwdCtrl.text.trim();
 
-    if (email.isEmpty || pass.isEmpty) {
+    if (newPwd.isEmpty || confirmNewPwd.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email & password')),
+        const SnackBar(content: Text("Enter a new password and confirm it.")),
       );
       return;
     }
 
+    if (newPwd != confirmNewPwd) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Passwords do not match.")),
+      );
+      return;
+
+    }
+    debugPrint("📩 ForgotPassword submitted: $newPwd");
+    Navigator.pushNamed(context, '/reset-password', arguments: {'email': newPwd});
     setState(() => _loading = true);
 
     try {
       final supabaseUrl = dotenv.env['SUPABASE_URL']!;
       final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
 
-      final response = await http.get(
-        Uri.parse(
-            '$supabaseUrl/rest/v1/users?email=eq.$email&select=email,password'),
+      final response = await http.patch(
+        Uri.parse('$supabaseUrl/rest/v1/users?email=eq.${widget.email}'),
         headers: {
           'apikey': anonKey,
           'Authorization': 'Bearer $anonKey',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation',
         },
+        body: jsonEncode({'password': newPwd}),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List;
-        if (data.isNotEmpty && data.first['password'] == pass) {
-          // ✅ Success → Go to Dashboard
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ Invalid email or password')),
-          );
-        }
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("✅ Password reset successful")),
+        );
+        Navigator.popUntil(context, (r) => r.isFirst); // go back to login
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Login failed: ${response.body}')),
+          SnackBar(content: Text("❌ Failed: ${response.body}")),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
+        SnackBar(content: Text("❌ Error: $e")),
       );
     } finally {
       setState(() => _loading = false);
@@ -104,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             Image.asset('images/logo.png',
                                 height: 56, width: 56, fit: BoxFit.contain),
                             const SizedBox(height: 10),
-                            Text('Rajshree Fashion Admin',
+                            Text('Reset Password',
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleMedium!
@@ -116,19 +120,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.all(18),
                         child: Column(
                           children: [
+                            Text("Resetting password for: ${widget.email}"),
+                            const SizedBox(height: 12),
                             TextField(
-                              controller: _email,
-                              keyboardType: TextInputType.emailAddress,
+                              controller: _newPwdCtrl,
+                              obscureText: true,
                               decoration: const InputDecoration(
-                                  labelText: 'Email',
-                                  prefixIcon: Icon(Icons.email)),
+                                  labelText: 'New Password',
+                                  prefixIcon: Icon(Icons.lock)),
                             ),
                             const SizedBox(height: 12),
                             TextField(
-                              controller: _password,
+                              controller: _confirmNewPwdCtrl,
                               obscureText: true,
                               decoration: const InputDecoration(
-                                  labelText: 'Password',
+                                  labelText: 'Confirm New Password',
                                   prefixIcon: Icon(Icons.lock)),
                             ),
                             const SizedBox(height: 20),
@@ -142,22 +148,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                     height: 20,
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2))
-                                    : const Icon(Icons.login),
-                                label: const Text('Login'),
-                                onPressed: _loading ? null : _login,
+                                    : const Icon(Icons.refresh),
+                                label: const Text('Reset'),
+                                onPressed: _loading ? null : _reset,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                    context, '/forgot-password');
-                              },
-                              child: const Text("Forgot Password?"),
                             ),
                           ],
                         ),
-                      ),
+                      )
                     ],
                   ),
                 ),
@@ -169,3 +167,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+
