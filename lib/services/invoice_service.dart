@@ -6,28 +6,24 @@ import 'package:barcode/barcode.dart';
 
 class InvoiceService {
   static Future<Map<String, dynamic>> generateInvoiceFromJson(Map<String, dynamic> jsonData) async {
-    // Extract data from JSON
+    // Extract data
     String orderId = jsonData['order_id'] ?? '';
     String orderDate = jsonData['order_date'] ?? '';
     String customerName = jsonData['customer_name'] ?? '';
     String mobileNumber = jsonData['mobile_number'] ?? '';
     String shippingAddress = jsonData['shipping_address'] ?? '';
     String shippingState = jsonData['shipping_state'] ?? '';
-    double totalAmount = (jsonData['total_amount'] ?? 0).toDouble();
     double shippingAmount = (jsonData['shipping_amount'] ?? 0).toDouble();
-    String paymentMethod = jsonData['payment_method'] ?? '';
-    String invoiceNote = jsonData['invoice_note'] ?? '';
-
     List<dynamic> items = jsonData['items'] ?? [];
-    // Load a Unicode font
-  final ttf = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
-final customFont = pw.Font.ttf(ttf);
 
-    // GST settings
-    double cgstRate = 15; // Example rate, change as needed
-    double sgstRate = 15;
+    // Font
+    final ttf = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
+    final customFont = pw.Font.ttf(ttf);
 
-    // Calculate subtotal (before GST & shipping)
+    // GST
+    double cgstRate = 1.5;
+    double sgstRate = 1.5;
+
     double subTotal = items.fold(0, (sum, item) {
       return sum + ((item['price'] ?? 0) * (item['quantity'] ?? 0));
     });
@@ -35,89 +31,143 @@ final customFont = pw.Font.ttf(ttf);
     double cgst = subTotal * (cgstRate / 100);
     double sgst = subTotal * (sgstRate / 100);
     double grandTotal = subTotal + cgst + sgst + shippingAmount;
-            // Create barcode
+
+    // Barcode
     final barcode = Barcode.code128();
-    final svg = barcode.toSvg(orderId, width: 200, height: 80);
-    // Create PDF
+    final svg = barcode.toSvg(orderId, width: 200, height: 60);
+
     final pdf = pw.Document();
     pdf.addPage(
       pw.Page(
-
         pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
         build: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            // Add Barcode at the top
-            pw.Container(
-              height: 80,
-              child: pw.SvgImage(svg: svg),
+            // Header Row
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text("From", style: pw.TextStyle(font: customFont, fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    pw.Text("Rajashree Fashion", style: pw.TextStyle(font: customFont)),
+                    pw.Text("Chennai 600116", style: pw.TextStyle(font: customFont)),
+                    pw.Text("Tamil Nadu", style: pw.TextStyle(font: customFont)),
+                    pw.Text("7010041418", style: pw.TextStyle(font: customFont)),
+                    pw.Text("GSTIN: 33GFWPS8459J1Z8", style: pw.TextStyle(font: customFont)),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.SvgImage(svg: svg, height: 60),
+                    pw.SizedBox(height: 8),
+                    pw.Text("Order Date: $orderDate", style: pw.TextStyle(font: customFont, fontSize: 10)),
+                    pw.Text("Invoice No: $orderId", style: pw.TextStyle(font: customFont, fontSize: 10)),
+                  ],
+                ),
+              ],
             ),
-            pw.SizedBox(height: 20),
-            pw.Text('Invoice', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 10),
-            pw.Text('Invoice ID: $orderId'),
 
-            pw.Text('Date: $orderDate'),
-            pw.Text('Customer: $customerName'),
-            pw.Text('Mobile: $mobileNumber'),
-            pw.Text('Address: $shippingAddress, $shippingState'),
             pw.SizedBox(height: 20),
 
+            // Shipping Address Highlighted
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(width: 1, color: PdfColors.black),
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text("Shipping Address", style: pw.TextStyle(font: customFont, fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 5),
+                  pw.Text("$customerName", style: pw.TextStyle(font: customFont, fontSize: 12)),
+                  pw.Text("$shippingAddress", style: pw.TextStyle(font: customFont, fontSize: 12)),
+                  pw.Text("State: $shippingState", style: pw.TextStyle(font: customFont, fontSize: 12)),
+                  pw.Text("Contact No: $mobileNumber", style: pw.TextStyle(font: customFont, fontSize: 12)),
+                ],
+              ),
+            ),
+
+            pw.SizedBox(height: 20),
+
+            // Products
+            pw.Text("Products purchased:", style: pw.TextStyle(font: customFont, fontWeight: pw.FontWeight.bold)),
             pw.Table.fromTextArray(
-              headers: ['Item', 'Qty', 'Price', 'Total'],
+              headers: ["Product", "Qty", "Base Price (Excl. GST)"],
+              headerStyle: pw.TextStyle(font: customFont, fontWeight: pw.FontWeight.bold),
+              cellStyle: pw.TextStyle(font: customFont, fontSize: 10),
               data: items.map((e) => [
                 e['variant_name'] ?? '',
                 e['quantity'].toString(),
-                (e['price'] ?? 0).toStringAsFixed(2),
-                ((e['price'] ?? 0) * (e['quantity'] ?? 0)).toStringAsFixed(2),
+                "₹${(e['price'] ?? 0).toStringAsFixed(2)}",
               ]).toList(),
             ),
 
             pw.SizedBox(height: 20),
-            pw.Text('Subtotal: ₹${subTotal.toStringAsFixed(2)}',style: pw.TextStyle(
-    font: customFont,
-    fontSize: 12,
-    fontWeight: pw.FontWeight.bold,
-  )
+
+            // Totals Section (Right Aligned Box)
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Container(
+                width: 220,
+                padding: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(width: 1, color: PdfColors.black),
+                  borderRadius: pw.BorderRadius.circular(4),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    _summaryRow("Subtotal:", "₹${subTotal.toStringAsFixed(2)}", customFont),
+                    _summaryRow("CGST (${cgstRate.toStringAsFixed(1)}%):", "₹${cgst.toStringAsFixed(2)}", customFont),
+                    _summaryRow("SGST (${sgstRate.toStringAsFixed(1)}%):", "₹${sgst.toStringAsFixed(2)}", customFont),
+                    _summaryRow("Shipping:", "₹${shippingAmount.toStringAsFixed(2)}", customFont),
+                    pw.Divider(),
+                    _summaryRow("Total:", "₹${grandTotal.toStringAsFixed(2)}", customFont, bold: true),
+                  ],
+                ),
+              ),
             ),
-            
-            pw.Text('CGST ($cgstRate%): ₹${cgst.toStringAsFixed(2)}',style: pw.TextStyle(
-    font: customFont,
-    fontSize: 12,
-    fontWeight: pw.FontWeight.bold,
-  )),
-            pw.Text('SGST ($sgstRate%): ₹${sgst.toStringAsFixed(2)}',style: pw.TextStyle(
-    font: customFont,
-    fontSize: 12,
-    fontWeight: pw.FontWeight.bold,
-  )),
-            pw.Text('Shipping: ₹${shippingAmount.toStringAsFixed(2)}',style: pw.TextStyle(
-    font: customFont,
-    fontSize: 12,
-    fontWeight: pw.FontWeight.bold,
-  )),
-            pw.Text('Total: ₹${grandTotal.toStringAsFixed(2)}',
-                style: pw.TextStyle(font:customFont, fontSize: 16, fontWeight: pw.FontWeight.bold)),
+
             pw.SizedBox(height: 20),
-            pw.Text('Payment Method: $paymentMethod'),
-            if (invoiceNote.isNotEmpty) pw.SizedBox(height: 10),
-            if (invoiceNote.isNotEmpty) pw.Text('Note: $invoiceNote'),
+
+            // Footer Note
+            pw.Text("Thank you for your purchase!", style: pw.TextStyle(font: customFont, fontSize: 12)),
+            pw.Text(
+              "It is mandatory to take a 360° parcel opening video after receiving your product from the courier. "
+              "Without opening video the product will not be taken back for our consideration.",
+              style: pw.TextStyle(font: customFont, fontSize: 10),
+            ),
           ],
         ),
       ),
     );
 
     Uint8List pdfBytes = await pdf.save();
-    // Assuming orderDate is a DateTime object
-    DateTime norderDate = DateTime.tryParse(jsonData['order_date'] ?? '') ?? DateTime.now();
+    DateTime norderDate = DateTime.tryParse(orderDate) ?? DateTime.now();
 
-    // Return file details (base64 for API or upload)
     return {
       "orderId": orderId,
       "fileName": "Invoice_$orderId.pdf",
-      "filedate":  norderDate,
+      "filedate": norderDate,
       "mimeType": "application/pdf",
       "fileData": base64Encode(pdfBytes),
     };
+  }
+
+  static pw.Widget _summaryRow(String label, String value, pw.Font font, {bool bold = false}) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(label, style: pw.TextStyle(font: font, fontSize: 10, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+        pw.Text(value, style: pw.TextStyle(font: font, fontSize: 10, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+      ],
+    );
   }
 }

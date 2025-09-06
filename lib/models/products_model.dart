@@ -7,7 +7,7 @@ class Variant {
   final double regularPrice;
   final double weight;
   final String color;
-  final double? stock;
+  final double stock;
   final double? length;
   final double? size;
   final String? imageUrl;
@@ -24,7 +24,7 @@ class Variant {
     this.imageUrl,
     this.length,
     this.size,
-    this.stock,
+    this.stock = 0,
     this.isActive,
   });
 

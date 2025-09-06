@@ -5,6 +5,7 @@ import 'package:admin_dashboard_rajshree/screens/trackship_screen.dart';
 import 'package:admin_dashboard_rajshree/screens/vendor_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
+import 'package:admin_dashboard_rajshree/screens/combo_screen.dart';
 import 'package:admin_dashboard_rajshree/services/dashboard_service.dart';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -15,6 +16,7 @@ enum DashboardMenu {
   purchases,
   trackship,
   vendors,
+  combos
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -110,6 +112,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase"),
           _buildMenuItem(DashboardMenu.trackship, Icons.local_shipping, "Trackship"),
           _buildMenuItem(DashboardMenu.vendors, Icons.store_mall_directory, "Vendors"),
+          _buildMenuItem(DashboardMenu.combos, Icons.all_inbox, "Combos")
         ],
       ),
     );
@@ -146,6 +149,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return TrackShipScreen();
       case DashboardMenu.vendors:
         return const VendorScreen();
+      case DashboardMenu.combos:
+        return const ComboScreen();
     }
   }
 
