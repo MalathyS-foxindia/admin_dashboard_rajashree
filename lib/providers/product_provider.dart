@@ -39,6 +39,12 @@ class ProductProvider with ChangeNotifier {
   bool get hasMore => _page < totalPages;
 
   /// ---------------------------
+  /// VARIANTS
+  /// ---------------------------
+  List<Variant> _allVariants = [];
+  List<Variant> get variants => _allVariants;
+
+  /// ---------------------------
   /// SETTERS
   /// ---------------------------
   void setPageSize(int size, {String? search, String? category}) {
@@ -117,6 +123,7 @@ class ProductProvider with ChangeNotifier {
           ..clear()
           ..addAll(newProducts);
 
+        // 🔹 Update categories (first load only)
         if (reset) {
           _categories
             ..clear()
@@ -126,6 +133,12 @@ class ProductProvider with ChangeNotifier {
                 .toSet()
                 .toList());
         }
+
+        // 🔹 Collect all variants
+        _allVariants = newProducts
+    .expand<Variant>((p) => p.variants ?? <Variant>[])
+    .toList();
+
       } else {
         error = 'Fetch failed (${resp.statusCode}): ${resp.body}';
         debugPrint('❌ fetchProducts error: ${resp.body}');
@@ -257,73 +270,75 @@ class ProductProvider with ChangeNotifier {
       return false;
     }
   }
-Future<bool> adjustVariantStock({
-  required String? variantId,
-  required int stock,
-  required String reason,
-}) async {
-  if (variantId == null) return false;
 
-  try {
-    final supabase = Supabase.instance.client;
+  /// ---------------------------
+  /// ADJUST VARIANT STOCK
+  /// ---------------------------
+  Future<bool> adjustVariantStock({
+    required String? variantId,
+    required int stock,
+    required String reason,
+  }) async {
+    if (variantId == null) return false;
 
-    // 🔹 Step 1: Get existing stock
-    final existingRes = await supabase
-        .from('product_variants')
-        .select('stock')
-        .eq('variant_id', variantId)
-        .maybeSingle();
+    try {
+      final supabase = Supabase.instance.client;
 
-    if (existingRes == null) {
-      error = "Variant not found";
+      // 🔹 Step 1: Get existing stock
+      final existingRes = await supabase
+          .from('product_variants')
+          .select('stock')
+          .eq('variant_id', variantId)
+          .maybeSingle();
+
+      if (existingRes == null) {
+        error = "Variant not found";
+        notifyListeners();
+        return false;
+      }
+
+      final int existingStock = existingRes['stock'] ?? 0;
+
+      // 🔹 Step 2: Calculate difference
+      final int diff = stock - existingStock;
+      if (diff == 0) {
+        error = "No stock change detected";
+        notifyListeners();
+        return false;
+      }
+
+      final String changeType = diff > 0 ? "IN" : "OUT";
+
+      // 🔹 Step 3: Update product_variant
+      final updateRes = await supabase
+          .from('product_variants')
+          .update({'stock': stock})
+          .eq('variant_id', variantId)
+          .select();
+
+      if (updateRes.isEmpty) {
+        error = "Failed to update stock";
+        notifyListeners();
+        return false;
+      }
+
+      // 🔹 Step 4: Insert into stock_ledger
+      await supabase.from('stock_ledger').insert({
+        'variant_id': variantId,
+        'change_type': changeType,
+        'quantity': diff.abs(),
+        'reference_type': 'Manual Adjustment',
+        'reference_id': variantId,
+        'note': reason,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      error = e.toString();
       notifyListeners();
       return false;
     }
-
-    final int existingStock = existingRes['stock'] ?? 0;
-
-    // 🔹 Step 2: Calculate difference
-    final int diff = stock - existingStock;
-    if (diff == 0) {
-      error = "No stock change detected";
-      notifyListeners();
-      return false;
-    }
-
-    final String changeType = diff > 0 ? "IN" : "OUT";
-
-    // 🔹 Step 3: Update product_variant
-    final updateRes = await supabase
-        .from('product_variants')
-        .update({'stock': stock})
-        .eq('variant_id', variantId)
-        .select();
-
-    if (updateRes.isEmpty) {
-      error = "Failed to update stock";
-      notifyListeners();
-      return false;
-    }
-
-    // 🔹 Step 4: Insert into stock_ledger
-    await supabase.from('stock_ledger').insert({
-      'variant_id': variantId,
-      'change_type': changeType,
-      'quantity': diff.abs(),
-      'reference_type': 'Manual Adjustment',
-      'reference_id': variantId,
-      'note': reason,
-      'created_at': DateTime.now().toIso8601String(),
-    });
-
-    notifyListeners();
-    return true;
-  } catch (e) {
-    error = e.toString();
-    notifyListeners();
-    return false;
   }
-}
-
-
 }

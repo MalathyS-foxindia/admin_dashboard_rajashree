@@ -27,6 +27,20 @@ class Combo {
     required this.items,
   });
 
+  /// Factory for empty combo (safe defaults)
+  factory Combo.empty() {
+    return const Combo(
+      comboId: 0,
+      sku: '',
+      name: '',
+      description: '',
+      price: 0,
+      comboQuantity: 0,
+      isActive: true,
+      items: [],
+    );
+  }
+
   /// Parse a single Combo from JSON (Map)
   factory Combo.fromJson(Map<String, dynamic> json) {
     return Combo(
@@ -38,7 +52,7 @@ class Combo {
       price: _asInt(json['price']),
       comboId: _asInt(json['combo_id']),
       sku: (json['sku'] ?? '') as String,
-      isActive: _asBool(json['is_Active']),
+      isActive: _asBool(json['is_active']),
       items: (json['items'] as List<dynamic>? ?? [])
           .map((e) => ComboItem.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -55,7 +69,7 @@ class Combo {
         'price': price,
         'combo_id': comboId,
         'sku': sku,
-        'is_Active': isActive,
+        'is_active': isActive,
         'items': items.map((e) => e.toJson()).toList(),
       };
 
@@ -65,8 +79,6 @@ class Combo {
   /// Sum of quantity_per_combo across items (how many units needed for one combo)
   int get totalUnitsRequiredForOneCombo =>
       items.fold(0, (sum, it) => sum + it.quantityPerCombo);
-
-
 
   /// CopyWith for updates
   Combo copyWith({
@@ -105,9 +117,7 @@ class Combo {
   }
 }
 
-
 /// ---------- helpers ----------
-
 int _asInt(dynamic v, [int fallback = 0]) {
   if (v is int) return v;
   if (v is double) return v.round();

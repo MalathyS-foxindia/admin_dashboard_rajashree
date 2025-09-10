@@ -1,27 +1,30 @@
 import 'products_model.dart';
+
 class ComboItem {
   final int comboId;
-  final int comboItemId;
+  final int? comboItemId; // nullable
   final int quantityPerCombo;
-  final int variantId;
-  final Variant productVariants;
+  final String? variantId;
+  final Variant? productVariants;
 
   const ComboItem({
     required this.comboId,
-    required this.comboItemId,
+    this.comboItemId,
     required this.quantityPerCombo,
     required this.variantId,
-    required this.productVariants,
+   this.productVariants,
   });
 
   factory ComboItem.fromJson(Map<String, dynamic> json) {
     return ComboItem(
       comboId: _asInt(json['combo_id']),
-      comboItemId: _asInt(json['combo_item_id']),
+      comboItemId: json['combo_item_id'] != null
+          ? _asInt(json['combo_item_id'])
+          : null,
       quantityPerCombo: _asInt(json['quantity_per_combo']),
-      variantId: _asInt(json['variant_id']),
+      variantId: json['variant_id']?.toString(), // ✅ safe String conversion
       productVariants: Variant.fromJson(
-        (json['product_variants'] as Map<String, dynamic>? ?? const {}),
+        (json['product_variants'] as Map<String, dynamic>? ?? {}),
       ),
     );
   }
@@ -30,32 +33,27 @@ class ComboItem {
         'combo_id': comboId,
         'combo_item_id': comboItemId,
         'quantity_per_combo': quantityPerCombo,
-        'variant_id': variantId,
-        'product_variants': productVariants.toJson(),
+        'variant_id': variantId
       };
-
-
 
   ComboItem copyWith({
     int? comboId,
     int? comboItemId,
     int? quantityPerCombo,
-    int? variantId,
-    Variant? productVariants,
+    String? variantId,
+    Variant? productVariants
   }) {
     return ComboItem(
       comboId: comboId ?? this.comboId,
       comboItemId: comboItemId ?? this.comboItemId,
       quantityPerCombo: quantityPerCombo ?? this.quantityPerCombo,
       variantId: variantId ?? this.variantId,
-      productVariants: productVariants ?? this.productVariants,
+       productVariants: productVariants ?? this.productVariants
     );
   }
 }
 
-
 /// ---------- helpers ----------
-
 int _asInt(dynamic v, [int fallback = 0]) {
   if (v is int) return v;
   if (v is double) return v.round();

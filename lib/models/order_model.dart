@@ -1,47 +1,44 @@
+import 'customer_model.dart';
 
 class Order {
   final String orderId;
   final String? customerId;
-  final String customerName;
-  final String address;
-  final String state;
-  final String mobileNumber;
+
   final double totalAmount;
   final String source;
   final double shippingAmount;
   final String paymentMethod;
   final String paymentTransactionId;
   final String orderNote;
-  final bool isGuest;
+
   final String orderDate;
   final String orderStatus;
 
-  // ✅ New fields from response
+  // ✅ New fields
   final String? invoiceUrl;
   final String? shipmentStatus;
+
+  // ✅ Embedded customer object
+  final Customer? customer;
 
   Order({
     required this.orderDate,
     required this.orderId,
     this.customerId,
-    required this.customerName,
-    required this.address,
-    required this.state,
-    required this.mobileNumber,
     required this.totalAmount,
     required this.source,
     required this.shippingAmount,
     required this.paymentMethod,
     required this.paymentTransactionId,
     required this.orderNote,
-    required this.isGuest,
     required this.orderStatus,
     this.invoiceUrl,
     this.shipmentStatus,
+    this.customer,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
-    // Get shipment status from array (if any)
+    // Extract shipment status (from array if present)
     String? shipmentStatus;
     if (json['shipment_tracking'] != null &&
         (json['shipment_tracking'] as List).isNotEmpty) {
@@ -55,20 +52,36 @@ class Order {
           .split(' ')[0],
       orderId: json['order_id'].toString(),
       customerId: json['customer_id']?.toString(),
-      customerName: json['customer_name'] ?? '',
-      address: json['address'] ?? '',
-      state: json['State'] ?? '', // note: capital 'S' from your response
-      mobileNumber: json['mobile_number']?.toString() ?? '',
       totalAmount: (json['total_amount'] as num).toDouble(),
       source: json['source'] ?? '',
       shippingAmount: (json['shipping_amount'] as num).toDouble(),
       paymentMethod: json['payment_method'] ?? '',
       paymentTransactionId: json['payment_transaction_id']?.toString() ?? '',
       orderNote: json['order_note'] ?? '',
-      isGuest: json['is_guest'] ?? false,
       orderStatus: json['order_status'] ?? '',
       invoiceUrl: json['invoice_url'],
       shipmentStatus: shipmentStatus,
+      // ✅ parse embedded customer if present
+      customer: json['customers'] != null
+          ? Customer.fromJson(json['customers'])
+          : null,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'order_id': orderId,
+      'customer_id': customerId,
+      'total_amount': totalAmount,
+      'source': source,
+      'shipping_amount': shippingAmount,
+      'payment_method': paymentMethod,
+      'payment_transaction_id': paymentTransactionId,
+      'order_note': orderNote,
+      'order_status': orderStatus,
+      'invoice_url': invoiceUrl,
+      'shipment_status': shipmentStatus,
+      'customers': customer?.toJson(),
+    };
   }
 }
