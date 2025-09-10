@@ -31,6 +31,34 @@ class _ProductsScreenState extends State<ProductsScreen> {
           .fetchProducts(reset: true);
     });
   }
+void _showImageDialog(String imageUrl) {
+  showDialog(
+    context: context,
+    builder: (ctx) {
+      return Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4,
+              child: Image.network(imageUrl),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () => Navigator.of(ctx).pop(),
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.all(Colors.black54),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
   Future<void> _openAddDialog() async {
     final ok = await showDialog<bool>(
@@ -319,13 +347,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                         },
                                       ),
                                     ),
-                                    DataCell(p.imageUrl != null
-                                        ? Image.network(p.imageUrl!,
-                                            width: 50,
-                                            height: 50,
-                                            fit: BoxFit.cover)
-                                        : const Icon(Icons.image_not_supported,
-                                            size: 40)),
+                                    DataCell(
+  p.imageUrl != null
+      ? GestureDetector(
+          onTap: () => _showImageDialog(p.imageUrl!),
+          child: Image.network(
+            p.imageUrl!,
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+          ),
+        )
+      : const Icon(Icons.image_not_supported, size: 40),
+),
+
                                     DataCell(Text(p.name)),
                                     DataCell(
                                       InkWell(

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/combo_provider.dart';
 import '../models/combo_model.dart';
+import '../models/combo_items_model.dart';
+import '../widgets/combo_form.dart';
 
 class ComboScreen extends StatefulWidget {
   const ComboScreen({super.key});
@@ -27,17 +29,19 @@ class _ComboScreenState extends State<ComboScreen> {
   }
 
   Future<void> _openEditDialog(Combo combo) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => _EditComboDialog(combo: combo),
-    );
-    if (ok == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Combo updated successfully')));
-      Provider.of<ComboProvider>(context, listen: false)
-          .fetchCombos(reset: true, search: _searchQuery);
-    }
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => ComboFormDialog(combo: combo), // 👈 use new widget
+  );
+  if (ok == true && mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Combo updated successfully')));
+    Provider.of<ComboProvider>(context, listen: false)
+        .fetchCombos(reset: true, search: _searchQuery);
   }
+}
+
+
 
   Future<void> _showComboDetails(Combo combo) async {
     await showDialog(
@@ -51,16 +55,16 @@ class _ComboScreenState extends State<ComboScreen> {
               shrinkWrap: true,
               children: combo.items.map((item) {
                 final lowStock =
-                    (item.productVariants.stock ?? 0) < item.quantityPerCombo;
+                    (item.productVariants?.stock ?? 0) < item.quantityPerCombo;
                 return ListTile(
-                  title: Text(item.productVariants.name),
-                  subtitle: Text("SKU: ${item.productVariants.sku}"),
+                  title: Text(item.productVariants!.name),
+                  subtitle: Text("SKU: ${item.productVariants?.sku}"),
                   trailing: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text("Qty: ${item.quantityPerCombo}"),
                       Text(
-                        "Stock: ${item.productVariants.stock ?? 0}",
+                        "Stock: ${item.productVariants?.stock ?? 0}",
                         style: TextStyle(
                           color: lowStock ? Colors.red : Colors.green,
                         ),
@@ -130,7 +134,23 @@ class _ComboScreenState extends State<ComboScreen> {
     return Consumer<ComboProvider>(
       builder: (context, provider, _) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Combo Management')),
+          appBar: AppBar(title: const Text('Combo Management'),actions: [
+  IconButton(
+    icon: const Icon(Icons.add),
+    onPressed: () async {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => const ComboFormDialog(), // 👈 no combo = add new
+      );
+      if (ok == true && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Combo added successfully')));
+        Provider.of<ComboProvider>(context, listen: false)
+            .fetchCombos(reset: true, search: _searchQuery);
+      }
+    },
+  ),
+]),
           body: Column(
             children: [
               _buildFilterBar(provider),
@@ -272,6 +292,8 @@ class _ComboScreenState extends State<ComboScreen> {
               ),
             ],
           ),
+          
+
         );
       },
     );
@@ -337,4 +359,4 @@ class _EditComboDialog extends StatelessWidget {
       ],
     );
   }
-}
+} 
