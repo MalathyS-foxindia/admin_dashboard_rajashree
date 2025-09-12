@@ -6,6 +6,7 @@ import 'package:admin_dashboard_rajashree/screens/queries_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/returns_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/trackship_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/vendor_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/combo_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:admin_dashboard_rajashree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajashree/services/dashboard_service.dart';
@@ -18,6 +19,7 @@ enum DashboardMenu {
   purchases,
   trackship,
   vendors,
+  combos,
   customers,
   queries,
   returns,
@@ -121,38 +123,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
 
       child: Column(
-        children: [
-          Align(
-            alignment: Alignment.topRight,
-            child: IconButton(
-              icon: Icon(
-                _isMenuCollapsed ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
-                color: Colors.white,
-                size: 18,
-              ),
-              onPressed: () {
-                setState(() => _isMenuCollapsed = !_isMenuCollapsed);
-              },
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              children: [
-                if (isAdmin)
-                  _buildMenuItem(DashboardMenu.dashboard, Icons.dashboard, "Dashboard", allowed: true),
-                _buildMenuItem(DashboardMenu.orders, Icons.shopping_cart, "Orders", allowed: isAdmin || isManager),
-                _buildMenuItem(DashboardMenu.products, Icons.store, "Products", allowed: isAdmin || isManager),
-                _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase", allowed: isAdmin),
-                _buildMenuItem(DashboardMenu.trackship, Icons.local_shipping, "Trackship", allowed: true),
-                _buildMenuItem(DashboardMenu.vendors, Icons.store_mall_directory, "Vendors", allowed: isAdmin),
-                _buildMenuItem(DashboardMenu.customers, Icons.person, "Customers", allowed: isAdmin),
-                _buildMenuItem(DashboardMenu.queries, Icons.live_help_sharp, "Queries", allowed: isAdmin || isManager),
-                _buildMenuItem(DashboardMenu.returns, Icons.assignment_returned, "Returns", allowed: isAdmin || isManager),
-              ],
-            ),
-          ),
-        ],
+          children: [
+    Align(
+    alignment: Alignment.topRight,
+      child: IconButton(
+        icon: Icon(
+          _isMenuCollapsed ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
+          color: Colors.white,
+          size: 18,
+        ),
+        onPressed: () {
+          setState(() => _isMenuCollapsed = !_isMenuCollapsed);
+        },
       ),
+    ),
+    Expanded(
+    child: ListView(
+    children: [
+    if (isAdmin)
+    _buildMenuItem(DashboardMenu.dashboard, Icons.dashboard, "Dashboard", allowed: true),
+    _buildMenuItem(DashboardMenu.orders, Icons.shopping_cart, "Orders", allowed: isAdmin || isManager),
+    _buildMenuItem(DashboardMenu.products, Icons.store, "Products", allowed: isAdmin || isManager),
+    _buildMenuItem(DashboardMenu.combos, Icons.all_inbox, "Combos", allowed: isAdmin || isManager),
+    _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase", allowed: isAdmin),
+    _buildMenuItem(DashboardMenu.trackship, Icons.local_shipping, "Trackship", allowed: true),
+    _buildMenuItem(DashboardMenu.vendors, Icons.store_mall_directory, "Vendors", allowed: isAdmin),
+    _buildMenuItem(DashboardMenu.customers, Icons.person, "Customers", allowed: isAdmin),
+    _buildMenuItem(DashboardMenu.queries, Icons.live_help_sharp, "Queries", allowed: isAdmin || isManager),
+    _buildMenuItem(DashboardMenu.returns, Icons.assignment_returned, "Returns", allowed: isAdmin || isManager),
+    ],
+    ),
+    ),
+    ],
+    ),
     );
   }
 
@@ -183,24 +186,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildContent() {
     switch (selectedMenu) {
-      case DashboardMenu.dashboard:
-        return isAdmin ? _buildDashboardContent() : _noAccess();
-      case DashboardMenu.orders:
-        return (isAdmin || isManager) ? const OrdersScreen() : _noAccess();
-      case DashboardMenu.products:
-        return (isAdmin || isManager) ? const ProductsScreen() : _noAccess();
-      case DashboardMenu.purchases:
-        return isAdmin ? const PurchasePage() : _noAccess();
-      case DashboardMenu.trackship:
-        return TrackShipScreen();
-      case DashboardMenu.vendors:
-        return isAdmin ? const VendorScreen() : _noAccess();
-      case DashboardMenu.customers:
-        return isAdmin ? const CustomersScreen() : _noAccess();
-      case DashboardMenu.queries:
-        return (isAdmin || isManager) ? const QueriesScreen() : _noAccess();
-      case DashboardMenu.returns:
-        return (isAdmin || isManager) ? const ReturnsScreen() : _noAccess();
+    case DashboardMenu.dashboard:
+    return isAdmin ? _buildDashboardContent() : _noAccess();
+    case DashboardMenu.orders:
+    return (isAdmin || isManager) ? const OrdersScreen() : _noAccess();
+    case DashboardMenu.products:
+    return (isAdmin || isManager) ? const ProductsScreen() : _noAccess();
+    case DashboardMenu.combos:
+    return const ComboScreen();
+    case DashboardMenu.purchases:
+    return isAdmin ? const PurchasePage() : _noAccess();
+    case DashboardMenu.trackship:
+    return TrackShipScreen();
+    case DashboardMenu.vendors:
+    //return const VendorScreen();
+    return isAdmin ? const VendorScreen() : _noAccess();
+    case DashboardMenu.customers:
+    return isAdmin ? const CustomersScreen() : _noAccess();
+    case DashboardMenu.queries:
+    return (isAdmin || isManager) ? const QueriesScreen() : _noAccess();
+    case DashboardMenu.returns:
+    return (isAdmin || isManager) ? const ReturnsScreen() : _noAccess();
     }
   }
 

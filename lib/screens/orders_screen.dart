@@ -40,144 +40,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _loadSkuSummary() async {
-    print("Loading SKU summary for date: $_selectedDate");
     final summary = await _supabaseService.fetchDailySkuSummary(_selectedDate);
-    print("Fetched SKU summary: $summary");
     setState(() => _skuSummary = List<Map<String, dynamic>>.from(summary));
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2023, 1, 1),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) {
-      print("selected date: $picked");
-      setState(() => _selectedDate = picked);
-      await _loadSkuSummary();
-    }
-  }
-
-   void _showSkuSummaryDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text("📦 Daily SKU Sales Summary"),
-              content: SizedBox(
-                width: 700,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        TextButton.icon(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _selectedDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime.now(),
-                            );
-                            if (picked != null) {
-                              setState(() => _selectedDate = picked);
-                              await _loadSkuSummary();
-                              // refresh dialog UI
-                              setDialogState(() {});
-                            }
-                          },
-                          icon: const Icon(Icons.calendar_today),
-                          label: Text("${_selectedDate.toLocal()}".split(' ')[0]),
-                        ),
-                        const Spacer(),
-                        ElevatedButton.icon(
-                          onPressed: _skuSummary.isEmpty
-                              ? null
-                              : () async {
-                                  final success =
-                                      await ExcelService.exportSkuSummaryToExcel(
-                                    _skuSummary,
-                                    _selectedDate,
-                                  );
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(success
-                                            ? 'SKU Summary exported!'
-                                            : 'Failed to export.'),
-                                      ),
-                                    );
-                                  }
-                                },
-                          icon: const Icon(Icons.file_download),
-                          label: const Text("Export Excel"),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 400,
-                      child: _skuSummary.isEmpty
-                          ? const Center(child: Text("No sales summary available"))
-                          : SingleChildScrollView(
-                              scrollDirection: Axis.vertical,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: DataTable(
-                                  headingRowColor:
-                                      WidgetStateProperty.resolveWith(
-                                          (states) => Colors.grey[200]),
-                                  columns: const [
-                                    DataColumn(label: Text("SKU")),
-                                    DataColumn(label: Text("Variant")),
-                                    DataColumn(label: Text("Qty Sold")),
-                                    DataColumn(label: Text("Current Stock")),
-                                  ],
-                                  rows: _skuSummary.map((sku) {
-                                    final currentStock = int.tryParse(sku['current_stock']?.toString() ?? '0') ?? 0;
-                                    final totalQty = int.tryParse(sku['total_qty']?.toString() ?? '0') ?? 0;
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                            Text((sku['sku'] ?? 'N/A').toString())),
-                                        DataCell(Text(
-                                            (sku['variant_name'] ?? 'N/A')
-                                                .toString())),
-                                       DataCell(Text(totalQty.toString())),
-                                        DataCell(
-                                          Text(
-                                            currentStock.toString(),
-                                            style: TextStyle(
-                                              color: currentStock < totalQty ? Colors.red : Colors.black,
-                                              fontWeight: currentStock < totalQty ? FontWeight.bold : FontWeight.normal,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Close"),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 
   void filterOrders(String query) {
@@ -189,8 +53,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   List<Order> _applyFilter(List<Order> all) {
     return all.where((order) {
-      return order.customerName.toLowerCase().contains(searchQuery) ||
-          order.mobileNumber.contains(searchQuery) ||
+      final customer = order.customer;
+      return (customer?.mobileNumber?.contains(searchQuery) ?? false) ||
+          (customer?.address?.toLowerCase().contains(searchQuery) ?? false) ||
+          (customer?.state?.toLowerCase().contains(searchQuery) ?? false) ||
           order.source.toLowerCase().contains(searchQuery) ||
           order.orderId.toLowerCase().contains(searchQuery);
     }).toList();
@@ -282,6 +148,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Future<void> _showOrderDetails(BuildContext context, Order order) async {
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
     final items = await orderProvider.fetchOrderItems(order.orderId.toString());
+    final customer = order.customer;
 
     showDialog(
       context: context,
@@ -293,13 +160,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Customer: ${order.customerName}"),
-                Text("Mobile: ${order.mobileNumber}"),
-                Text("Address: ${order.address}, ${order.state}"),
-                Text(
-                    "Amount: ₹${order.totalAmount} (Shipping: ₹${order.shippingAmount})"),
-                Text(
-                    "Source: ${order.source} | Guest: ${order.isGuest ? 'Yes' : 'No'}"),
+                if (customer != null) ...[
+                  Text("Customer ID: ${customer.customerId}"),
+                  Text("Mobile: ${customer.mobileNumber}"),
+                  Text("Email: ${customer.email}"),
+                  Text("Address: ${customer.address}, ${customer.state}, ${customer.pincode}"),
+                ],
+                Text("Amount: ₹${order.totalAmount} (Shipping: ₹${order.shippingAmount})"),
+                Text("Source: ${order.source}"),
                 Text("Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
                 if (order.orderNote.isNotEmpty) Text("Note: ${order.orderNote}"),
                 const Divider(),
@@ -361,7 +229,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               onChanged: filterOrders,
                               decoration: const InputDecoration(
                                 prefixIcon: Icon(Icons.search),
-                                hintText: 'Search by name, mobile, source, order id',
+                                hintText: 'Search by mobile, source, order id',
                                 border: OutlineInputBorder(),
                               ),
                             ),
@@ -394,12 +262,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 : const Icon(Icons.file_download),
                             label: Text('Export Excel (${_selectedOrderIds.length})'),
                           ),
-                          const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            onPressed: _showSkuSummaryDialog,
-                            icon: const Icon(Icons.inventory),
-                            label: const Text("SKU Summary"),
-                          ),
                           const Spacer(),
                           const Text("Rows per page: "),
                           DropdownButton<int>(
@@ -427,9 +289,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             showCheckboxColumn: true,
                             columns: const [
                               DataColumn(label: Text("Order ID")),
-                              DataColumn(label: Text("Customer")),
+                              DataColumn(label: Text("Customer Name")),
                               DataColumn(label: Text("Mobile")),
                               DataColumn(label: Text("Amount")),
+                              DataColumn(label: Text("Source")),
                               DataColumn(label: Text("Order Status")),
                               DataColumn(label: Text("Shipment Status")),
                               DataColumn(label: Text("Invoice")),
@@ -458,10 +321,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                       onTap: () => _showOrderDetails(context, order),
                                     ),
                                   ),
-                                  DataCell(Text(order.customerName)),
-                                  DataCell(Text(order.mobileNumber)),
+                                  DataCell(Text(order.customer?.customerName?.toString() ?? "N/A")),
+                                  DataCell(Text(order.customer?.mobileNumber ?? "N/A")),
                                   DataCell(Text(
                                       "₹${order.totalAmount.toStringAsFixed(2)}")),
+                                  DataCell(Text(order.source)),
                                   DataCell(Text(order.orderStatus)),
                                   DataCell(
                                     InkWell(

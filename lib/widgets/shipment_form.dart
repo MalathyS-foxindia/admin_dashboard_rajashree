@@ -29,22 +29,23 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   /// Detect provider + tracking URL from tracking number
   void _detectProviderFromTracking(String trackingNumber) {
     String? provider;
-    
+
     if (trackingNumber.startsWith("C")) {
       provider = "DTDC";
-      
     } else if (trackingNumber.startsWith("F")) {
       provider = "Franch Express";
-      
     } else if (trackingNumber.endsWith("IN")) {
       provider = "India Post";
-      
     }
 
     setState(() {
       _selectedProvider = provider;
-    
     });
+
+    // 👇 auto-save after provider detection
+    if (trackingNumber.isNotEmpty) {
+      _submit();
+    }
   }
 
   Future<void> _submit() async {
@@ -53,15 +54,16 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
     final orderId = _orderIdController.text.trim();
     final trackingNumber = _trackingNumberController.text.trim();
     final provider = _selectedProvider ?? "Other";
-    var inline=false;
+    var inline = false;
+
     setState(() => _isSubmitting = true);
     try {
-      await Provider.of<ShipmentProvider>(context, listen: false).updateTrackingNumber(
+      await Provider.of<ShipmentProvider>(context, listen: false)
+          .updateTrackingNumber(
         orderId,
         trackingNumber,
         provider,
-        inline
-      // 👈 pass tracking URL also
+        inline,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,7 +116,8 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   hintText: "Scan or enter Tracking ID",
                   border: OutlineInputBorder(),
                 ),
-                onChanged: _detectProviderFromTracking, // 👈 auto-detect provider
+                onChanged:
+                    _detectProviderFromTracking, // 👈 auto-detect + auto-save
                 validator: (value) =>
                     value == null || value.isEmpty ? "Tracking ID is required" : null,
               ),
@@ -145,23 +148,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
               const SizedBox(height: 24),
               Row(
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.save),
-                      label: _isSubmitting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text("Save"),
-                      onPressed: _isSubmitting ? null : _submit,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
+                  const Spacer(),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.bug_report),
                     label: const Text("Mock Data"),
