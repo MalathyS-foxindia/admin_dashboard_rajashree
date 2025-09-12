@@ -1,8 +1,4 @@
-// lib/screens/forgot_password_screen.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -13,55 +9,21 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final TextEditingController _emailCtrl = TextEditingController();
-  final TextEditingController _newPwdCtrl = TextEditingController();
-  bool _loading = false;
 
-  Future<void> _resetPassword() async {
+  void _goToResetScreen() {
     final email = _emailCtrl.text.trim();
-    final newPwd = _newPwdCtrl.text.trim();
 
-    if (email.isEmpty || newPwd.isEmpty) {
+    if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter email & new password")),
+        const SnackBar(content: Text("Please enter email")),
       );
       return;
     }
+
     debugPrint("📩 ForgotPassword submitted: $email");
+
     Navigator.pushNamed(context, '/reset-password', arguments: {'email': email});
 
-    setState(() => _loading = true);
-
-    try {
-      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
-
-      final response = await http.patch(
-        Uri.parse('$supabaseUrl/rest/v1/users?email=eq.$email'),
-        headers: {
-          'apikey': anonKey,
-          'Authorization': 'Bearer $anonKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'password': newPwd}),
-      );
-
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Password updated! Please login.")),
-        );
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Failed: ${response.body}")),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Error: $e")),
-      );
-    } finally {
-      setState(() => _loading = false);
-    }
   }
 
   @override
@@ -80,7 +42,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: Card(
                   elevation: 8,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -88,25 +51,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 22),
                         decoration: const BoxDecoration(
-                          borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(16)),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(16),
+                          ),
                           gradient: LinearGradient(
                             colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)],
                           ),
                         ),
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset('images/logo.png',
-                                height: 56,
-                                width: 56,
-                                fit: BoxFit.contain),
+                                height: 56, width: 56, fit: BoxFit.contain),
                             const SizedBox(height: 10),
-                            Text('Reset Password',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium!
-                                    .copyWith(color: Colors.white)),
+                            Text(
+                              'Forgot Password',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium!
+                                  .copyWith(color: Colors.white),
+                            ),
                           ],
                         ),
                       ),
@@ -117,31 +80,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             TextField(
                               controller: _emailCtrl,
                               decoration: const InputDecoration(
-                                  labelText: 'Email',
-                                  prefixIcon: Icon(Icons.email)),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _newPwdCtrl,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                  labelText: 'New Password',
-                                  prefixIcon: Icon(Icons.lock)),
+                                labelText: 'Email',
+                                prefixIcon: Icon(Icons.email),
+                              ),
                             ),
                             const SizedBox(height: 20),
                             SizedBox(
                               width: double.infinity,
                               height: 48,
                               child: FilledButton.tonalIcon(
-                                icon: _loading
-                                    ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2))
-                                    : const Icon(Icons.refresh),
-                                label: const Text('Reset Password'),
-                                onPressed: _loading ? null : _resetPassword,
+                                icon: const Icon(Icons.navigate_next),
+                                label: const Text('Continue'),
+                                onPressed: _goToResetScreen,
                               ),
                             ),
                           ],

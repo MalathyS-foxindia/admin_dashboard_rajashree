@@ -1,4 +1,4 @@
-name: admin_dashboard_rajshree
+name: admin_dashboard_rajashree
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -53,7 +53,7 @@ dependencies:
   excel: ^4.0.6
   file_saver: ^0.3.1
   mobile_scanner: ^6.0.2
-  fl_chart: ^1.1.0
+  fl_chart: ^0.69.0
   url_launcher: ^6.1.10
 
 dev_dependencies:
