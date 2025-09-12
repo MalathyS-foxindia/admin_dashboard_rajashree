@@ -71,91 +71,101 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
-      body: shipmentProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : shipmentProvider.shipments.isEmpty
-              ? const Center(child: Text("No shipments found."))
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isDesktop = constraints.maxWidth > 800;
-                    final summary = _getSummary(shipmentProvider);
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage("images/bg.jpg"), // 🔥 add your background image here
+            fit: BoxFit.cover,
+          ),
+        ),
+        child:Container(
+          color: Colors.white.withOpacity(0.8),
+        child: shipmentProvider.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : shipmentProvider.shipments.isEmpty
+            ? const Center(child: Text("No shipments found."))
+            : LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth > 800;
+            final summary = _getSummary(shipmentProvider);
 
-                    return Column(
-                      children: [
-                        // 🔎 Search Bar
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: TextField(
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Search by Order ID or Tracking Number',
-                              prefixIcon: const Icon(Icons.search),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            onChanged: (value) {
-                              setState(() {
-                                _searchQuery = value.toLowerCase();
-                                _currentPage = 0;
-                              });
-                            },
-                          ),
-                        ),
-
-                        // 📊 Summary Cards + Export
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Wrap(
-                                  spacing: 12,
-                                  runSpacing: 12,
-                                  children: [
-                                    _SummaryCard("Pending",
-                                        summary['Pending'].toString(),
-                                        Colors.orange, Icons.schedule),
-                                    _SummaryCard("Shipped",
-                                        summary['Shipped'].toString(),
-                                        Colors.blue, Icons.local_shipping),
-                                    _SummaryCard("Delivered",
-                                        summary['Delivered'].toString(),
-                                        Colors.green, Icons.check_circle),
-                                  ],
-                                ),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: _selectedRows.isEmpty
-                                    ? null
-                                    : () async {
-                                        final selectedItems = _selectedRows
-                                            .map((i) => shipmentProvider.shipments[i])
-                                            .toList();
-                                        await _exportToExcel(selectedItems);
-                                      },
-                                icon: const Icon(Icons.download),
-                                label: const Text('Export Excel'),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // 📋 Shipments List
-                        Expanded(
-                          child: RefreshIndicator(
-                            onRefresh: () =>
-                                shipmentProvider.refreshShipments(),
-                            child: isDesktop
-                                ? _buildDataTable(shipmentProvider)
-                                : _buildListView(shipmentProvider),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+            return Column(
+              children: [
+                // 🔎 Search Bar
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search by Order ID or Tracking Number',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value.toLowerCase();
+                        _currentPage = 0;
+                      });
+                    },
+                  ),
                 ),
+
+                // 📊 Summary Cards + Export
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            _SummaryCard("Pending",
+                                summary['Pending'].toString(),
+                                Colors.orange, Icons.schedule),
+                            _SummaryCard("Shipped",
+                                summary['Shipped'].toString(),
+                                Colors.blue, Icons.local_shipping),
+                            _SummaryCard("Delivered",
+                                summary['Delivered'].toString(),
+                                Colors.green, Icons.check_circle),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _selectedRows.isEmpty
+                            ? null
+                            : () async {
+                          final selectedItems = _selectedRows
+                              .map((i) => shipmentProvider.shipments[i])
+                              .toList();
+                          await _exportToExcel(selectedItems);
+                        },
+                        icon: const Icon(Icons.download),
+                        label: const Text('Export Excel'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 📋 Shipments List
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () =>
+                        shipmentProvider.refreshShipments(),
+                    child: isDesktop
+                        ? _buildDataTable(shipmentProvider)
+                        : _buildListView(shipmentProvider),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.push(

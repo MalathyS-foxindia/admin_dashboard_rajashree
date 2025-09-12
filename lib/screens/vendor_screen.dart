@@ -187,7 +187,14 @@ class _VendorScreenState extends State<VendorScreen> {
           ),
         ],
       ),
-      body: provider.isLoading
+    body: Container(
+        decoration: const BoxDecoration(
+      image: DecorationImage(
+      image: AssetImage("images/bg.jpg"), // make sure bg.png is in assets/images
+      fit: BoxFit.cover,
+      ),
+    ),
+      child: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
         children: [
@@ -256,6 +263,7 @@ class _VendorScreenState extends State<VendorScreen> {
           ),
         ],
       ),
+     ),
     );
   }
 }
