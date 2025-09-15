@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/combo_provider.dart';
 import '../models/combo_model.dart';
-import '../models/combo_items_model.dart';
 import '../widgets/combo_form.dart';
 
 class ComboScreen extends StatefulWidget {
@@ -29,19 +28,47 @@ class _ComboScreenState extends State<ComboScreen> {
   }
 
   Future<void> _openEditDialog(Combo combo) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (_) => ComboFormDialog(combo: combo), // 👈 use new widget
-  );
-  if (ok == true && mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Combo updated successfully')));
-    Provider.of<ComboProvider>(context, listen: false)
-        .fetchCombos(reset: true, search: _searchQuery);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => ComboFormDialog(combo: combo),
+    );
+    if (ok == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Combo updated successfully')),
+      );
+      Provider.of<ComboProvider>(context, listen: false)
+          .fetchCombos(reset: true, search: _searchQuery);
+    }
   }
-}
 
-
+  void _showImageDialog(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: Stack(
+            alignment: Alignment.topRight,
+            children: [
+              InteractiveViewer(
+                panEnabled: true,
+                minScale: 0.5,
+                maxScale: 4,
+                child: Image.network(imageUrl),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: ButtonStyle(
+                  backgroundColor: MaterialStateProperty.all(Colors.black54),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   Future<void> _showComboDetails(Combo combo) async {
     await showDialog(
@@ -117,9 +144,12 @@ class _ComboScreenState extends State<ComboScreen> {
             onPressed: _selectedComboIds.isEmpty
                 ? null
                 : () {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
                         content: Text(
-                            'Exporting ${_selectedComboIds.length} combos...')));
+                            'Exporting ${_selectedComboIds.length} combos...'),
+                      ),
+                    );
                   },
             icon: const Icon(Icons.download),
             label: const Text("Export"),
@@ -134,23 +164,27 @@ class _ComboScreenState extends State<ComboScreen> {
     return Consumer<ComboProvider>(
       builder: (context, provider, _) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Combo Management'),actions: [
-  IconButton(
-    icon: const Icon(Icons.add),
-    onPressed: () async {
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (_) => const ComboFormDialog(), // 👈 no combo = add new
-      );
-      if (ok == true && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Combo added successfully')));
-        Provider.of<ComboProvider>(context, listen: false)
-            .fetchCombos(reset: true, search: _searchQuery);
-      }
-    },
-  ),
-]),
+          appBar: AppBar(
+            title: const Text('Combo Management'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () async {
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => const ComboFormDialog(),
+                  );
+                  if (ok == true && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Combo added successfully')),
+                    );
+                    Provider.of<ComboProvider>(context, listen: false)
+                        .fetchCombos(reset: true, search: _searchQuery);
+                  }
+                },
+              ),
+            ],
+          ),
           body: Column(
             children: [
               _buildFilterBar(provider),
@@ -182,6 +216,7 @@ class _ComboScreenState extends State<ComboScreen> {
                                     },
                                   ),
                                 ),
+                                const DataColumn(label: Text('Image')),
                                 const DataColumn(label: Text('SKU')),
                                 const DataColumn(label: Text('Name')),
                                 const DataColumn(label: Text('Price')),
@@ -211,6 +246,23 @@ class _ComboScreenState extends State<ComboScreen> {
                                           });
                                         },
                                       ),
+                                    ),
+                                    DataCell(
+                                      combo.imageUrl != null
+                                          ? GestureDetector(
+                                              onTap: () => _showImageDialog(
+                                                  combo.imageUrl!),
+                                              child: Image.network(
+                                                combo.imageUrl!,
+                                                width: 50,
+                                                height: 50,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.image_not_supported,
+                                              size: 40,
+                                            ),
                                     ),
                                     DataCell(
                                       InkWell(
@@ -292,71 +344,8 @@ class _ComboScreenState extends State<ComboScreen> {
               ),
             ],
           ),
-          
-
         );
       },
     );
   }
 }
-
-/// ---------- Inline Edit Dialog ----------
-class _EditComboDialog extends StatelessWidget {
-  final Combo combo;
-  const _EditComboDialog({required this.combo});
-
-  @override
-  Widget build(BuildContext context) {
-    final nameController = TextEditingController(text: combo.name);
-    final descController = TextEditingController(text: combo.description ?? "");
-    final priceController =
-        TextEditingController(text: combo.price.toString());
-
-    return AlertDialog(
-      title: const Text("Edit Combo"),
-      content: SingleChildScrollView(
-        child: Column(
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Combo Name"),
-            ),
-            TextField(
-              controller: descController,
-              decoration: const InputDecoration(labelText: "Description"),
-            ),
-            TextField(
-              controller: priceController,
-              decoration: const InputDecoration(labelText: "Price"),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "Items editing coming soon...",
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          child: const Text("Cancel"),
-          onPressed: () => Navigator.pop(context),
-        ),
-        ElevatedButton(
-          child: const Text("Save"),
-          onPressed: () {
-            final updated = combo.copyWith(
-              name: nameController.text,
-              description: descController.text,
-              price: int.tryParse(priceController.text) ?? combo.price,
-            );
-            Provider.of<ComboProvider>(context, listen: false)
-                .updateCombo(updated);
-            Navigator.pop(context, true);
-          },
-        ),
-      ],
-    );
-  }
-} 

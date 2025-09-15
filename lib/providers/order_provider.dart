@@ -6,13 +6,16 @@ import 'package:http/http.dart' as http;
 import '../models/order_model.dart';
 import '../models/order_item_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/logger.dart';
 
 class OrderProvider with ChangeNotifier {
   List<Order> _orders = [];
   bool _isLoading = false;
   final SupabaseClient supabase;
+late Logger logger;
 
-  OrderProvider(this.supabase);
+  OrderProvider(this.supabase) {
+    logger = Logger(supabase);}
 
   List<Order> get orders => _orders;
   bool get isLoading => _isLoading;
@@ -21,6 +24,11 @@ class OrderProvider with ChangeNotifier {
   Future<void> fetchOrders({String? search, String? filter}) async {
     _isLoading = true;
     notifyListeners();
+  await logger.log(
+    provider: "OrderProvider",
+    action: "fetchOrders",
+    message: "Fetching orders with search=$search filter=$filter",
+  );
 
     final queryParams = <String, String>{'limit': '1000'};
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
@@ -37,6 +45,7 @@ class OrderProvider with ChangeNotifier {
     });
 
     if (response.statusCode == 200) {
+      
       final data = json.decode(response.body);
       if (data['orders'] != null) {
         // Parse with shipment status included
@@ -46,9 +55,19 @@ class OrderProvider with ChangeNotifier {
                 'shipment_status': e['shipment_status'], // ✅ Ensure included
               })),
         );
+        await logger.log(
+          provider: "OrderProvider",
+          action: "fetchOrders",
+          message: "Fetched ${_orders.length} orders",
+        );
       }
     } else {
-      debugPrint('Error fetching orders: ${response.body}');
+       await logger.log(
+        provider: "OrderProvider",
+        action: "fetchOrders",
+        message: "Error ${response.statusCode}: ${response.body}",
+        level: "ERROR",
+      );
     }
 
     _isLoading = false;

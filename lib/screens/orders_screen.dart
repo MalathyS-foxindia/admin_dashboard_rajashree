@@ -22,6 +22,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
   int _page = 0;
   int _pageSize = 10;
   final List<int> _pageSizeOptions = [10, 20, 50, 100];
+String? _selectedStatus;
+String? _selectedSource;
+
+final List<String> _statusOptions = [
+  'Pending',
+  'Completed',
+  'Cancelled',
+  'Failed',
+];
+
+final List<String> _sourceOptions = [
+  'Website',
+  'Whatsapp',
+];
 
   bool _isGenerating = false;
   bool _isExporting = false;
@@ -52,15 +66,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   List<Order> _applyFilter(List<Order> all) {
-    return all.where((order) {
-      final customer = order.customer;
-      return (customer?.mobileNumber?.contains(searchQuery) ?? false) ||
-          (customer?.address?.toLowerCase().contains(searchQuery) ?? false) ||
-          (customer?.state?.toLowerCase().contains(searchQuery) ?? false) ||
-          order.source.toLowerCase().contains(searchQuery) ||
-          order.orderId.toLowerCase().contains(searchQuery);
-    }).toList();
-  }
+  return all.where((order) {
+    final customer = order.customer;
+
+    final matchesSearch =
+        (customer?.mobileNumber?.contains(searchQuery) ?? false) ||
+        (customer?.address?.toLowerCase().contains(searchQuery) ?? false) ||
+        (customer?.state?.toLowerCase().contains(searchQuery) ?? false) ||
+        order.source.toLowerCase().contains(searchQuery) ||
+        order.orderId.toLowerCase().contains(searchQuery);
+
+    final matchesStatus =
+        _selectedStatus == null || order.orderStatus == _selectedStatus;
+
+    final matchesSource =
+        _selectedSource == null || order.source == _selectedSource;
+
+    return matchesSearch && matchesStatus && matchesSource;
+  }).toList();
+}
 
   List<Order> _pagedOrders(List<Order> allFiltered) {
     final start = _page * _pageSize;
@@ -218,66 +242,80 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
-                    /// Top controls row
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 300,
-                            child: TextField(
-                              onChanged: filterOrders,
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.search),
-                                hintText: 'Search by mobile, source, order id',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            onPressed: _isGenerating
-                                ? null
-                                : () => _generateInvoices(context),
-                            icon: _isGenerating
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child:
-                                        CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(Icons.picture_as_pdf),
-                            label: const Text('Generate Invoice'),
-                          ),
-                          const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            onPressed: (_selectedOrderIds.isNotEmpty && !_isExporting)
-                                ? _exportOrdersToExcel
-                                : null,
-                            icon: _isExporting
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child:
-                                        CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(Icons.file_download),
-                            label: Text('Export Excel (${_selectedOrderIds.length})'),
-                          ),
-                          const Spacer(),
-                          const Text("Rows per page: "),
-                          DropdownButton<int>(
-                            value: _pageSize,
-                            items: _pageSizeOptions
-                                .map((s) =>
-                                    DropdownMenuItem(value: s, child: Text('$s')))
-                                .toList(),
-                            onChanged: (v) => setState(() {
-                              _pageSize = v!;
-                              _page = 0;
-                            }),
-                          )
-                        ],
-                      ),
-                    ),
+                    /// 🔹 Top controls row
+Padding(
+  padding: const EdgeInsets.all(16),
+  child: Wrap(
+    spacing: 16,
+    runSpacing: 12,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      SizedBox(
+        width: 300,
+        child: TextField(
+          onChanged: filterOrders,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Search by mobile, source, order id',
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ),
+
+      // Status filter
+      DropdownButton<String>(
+        hint: const Text("Filter by Status"),
+        value: _selectedStatus,
+        items: _statusOptions
+            .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+            .toList(),
+        onChanged: (v) => setState(() {
+          _selectedStatus = v;
+          _page = 0;
+        }),
+      ),
+
+      // Source filter
+      DropdownButton<String>(
+        hint: const Text("Filter by Source"),
+        value: _selectedSource,
+        items: _sourceOptions
+            .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+            .toList(),
+        onChanged: (v) => setState(() {
+          _selectedSource = v;
+          _page = 0;
+        }),
+      ),
+
+      ElevatedButton.icon(
+        onPressed: _isGenerating ? null : () => _generateInvoices(context),
+        icon: _isGenerating
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.picture_as_pdf),
+        label: const Text('Generate Invoice'),
+      ),
+      ElevatedButton.icon(
+        onPressed: (_selectedOrderIds.isNotEmpty && !_isExporting)
+            ? _exportOrdersToExcel
+            : null,
+        icon: _isExporting
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.file_download),
+        label: Text('Export Excel (${_selectedOrderIds.length})'),
+      ),
+    ],
+  ),
+),
+
 
                     /// Orders Table
                     Expanded(
@@ -288,6 +326,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           child: DataTable(
                             showCheckboxColumn: true,
                             columns: const [
+                               DataColumn(label: Text("Date")),
                               DataColumn(label: Text("Order ID")),
                               DataColumn(label: Text("Customer Name")),
                               DataColumn(label: Text("Mobile")),
@@ -296,7 +335,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               DataColumn(label: Text("Order Status")),
                               DataColumn(label: Text("Shipment Status")),
                               DataColumn(label: Text("Invoice")),
-                              DataColumn(label: Text("Date")),
+                              DataColumn(label: Text("Payment"))
+
+                             
                             ],
                             rows: pageOrders.map((order) {
                               final isSelected =
@@ -313,6 +354,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   });
                                 },
                                 cells: [
+                                  
+                                  DataCell(Text(order.orderDate)),
                                   DataCell(
                                     InkWell(
                                       child: Text(order.orderId,
@@ -360,7 +403,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                           },
                                         )
                                       : const Text("N/A")),
-                                  DataCell(Text(order.orderDate)),
+                                      DataCell(
+                                    order.paymentTransactionId != null && order.paymentTransactionId!.isNotEmpty
+                                        ? InkWell(
+                                            onTap: () {
+                                              final url =
+                                                  "https://dashboard.razorpay.com/app/orders/${order.paymentTransactionId}";
+                                              launchUrl(Uri.parse(url)); // from url_launcher package
+                                            },
+                                            child: Text(
+                                              order.paymentTransactionId!,
+                                              style: const TextStyle(
+                                                color: Colors.blue,
+                                                decoration: TextDecoration.underline,
+                                              ),
+                                            ),
+                                          )
+                                        : const Text("Not Paid"),
+                                  ),
+
                                 ],
                               );
                             }).toList(),
@@ -369,25 +430,40 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       ),
                     ),
 
-                    /// Pagination controls
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          onPressed: _page > 0
-                              ? () => setState(() => _page--)
-                              : null,
-                          icon: const Icon(Icons.chevron_left),
-                        ),
-                        Text('Page ${_page + 1} / $totalPages'),
-                        IconButton(
-                          onPressed: (_page + 1) < totalPages
-                              ? () => setState(() => _page++)
-                              : null,
-                          icon: const Icon(Icons.chevron_right),
-                        ),
-                      ],
-                    ),
+                   // inside build() -> Column(children: [...])
+
+
+/// 🔹 Pagination controls + Rows per page
+Padding(
+  padding: const EdgeInsets.all(12.0),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      IconButton(
+        onPressed: _page > 0 ? () => setState(() => _page--) : null,
+        icon: const Icon(Icons.chevron_left),
+      ),
+      Text('Page ${_page + 1} / $totalPages'),
+      IconButton(
+        onPressed: (_page + 1) < totalPages ? () => setState(() => _page++) : null,
+        icon: const Icon(Icons.chevron_right),
+      ),
+      const SizedBox(width: 20),
+      const Text("Rows per page: "),
+      DropdownButton<int>(
+        value: _pageSize,
+        items: _pageSizeOptions
+            .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+            .toList(),
+        onChanged: (v) => setState(() {
+          _pageSize = v!;
+          _page = 0;
+        }),
+      ),
+    ],
+  ),
+),
+
                   ],
                 ),
     );
