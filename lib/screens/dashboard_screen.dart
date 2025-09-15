@@ -1,12 +1,15 @@
-import 'package:admin_dashboard_rajshree/screens/orders_screen.dart';
-import 'package:admin_dashboard_rajshree/screens/products_screen.dart';
-import 'package:admin_dashboard_rajshree/screens/purchase_screen.dart';
-import 'package:admin_dashboard_rajshree/screens/trackship_screen.dart';
-import 'package:admin_dashboard_rajshree/screens/vendor_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/customer_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/orders_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/products_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/purchase_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/queries_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/returns_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/trackship_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/vendor_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/combo_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:admin_dashboard_rajshree/screens/login_screen.dart';
-import 'package:admin_dashboard_rajshree/screens/combo_screen.dart';
-import 'package:admin_dashboard_rajshree/services/dashboard_service.dart';
+import 'package:admin_dashboard_rajashree/screens/login_screen.dart';
+import 'package:admin_dashboard_rajashree/services/dashboard_service.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 enum DashboardMenu {
@@ -16,11 +19,15 @@ enum DashboardMenu {
   purchases,
   trackship,
   vendors,
-  combos
+  combos,
+  customers,
+  queries,
+  returns,
 }
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final String role;
+  const DashboardScreen({super.key,this.role = "Executive"});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -30,6 +37,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DashboardMenu selectedMenu = DashboardMenu.dashboard;
   final SupabaseService _supabaseService = SupabaseService();
   DateTime _selectedDate = DateTime.now(); // For daily stats
+
+  bool _isMenuCollapsed = false; // ✅ Track collapsed state
+
+  bool get isAdmin => widget.role.toLowerCase() == "admin";
+  bool get isManager => widget.role.toLowerCase() == "manager";
+  bool get isExecutive => widget.role.toLowerCase() == "executive";
 
   Future<void> _pickDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -50,40 +63,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        backgroundColor: Colors.deepPurple.shade700,
+        backgroundColor: const Color(0xFF4A90E2),
         elevation: 3,
         title: Row(
           children: [
             Image.asset("images/logo.png", height: 32),
             const SizedBox(width: 12),
             const Text(
-              "Rajshree Fashions",
+              "Rajashree Fashions",
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ],
         ),
         actions: [
+          const SizedBox(width: 8),
           PopupMenuButton<String>(
             icon: const CircleAvatar(
               radius: 18,
               backgroundColor: Colors.white,
               child: Icon(Icons.person, color: Colors.deepPurple),
             ),
-            onSelected: (value) {
-              if (value == "logout") {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-              }
-            },
             itemBuilder: (context) => [
               const PopupMenuItem(value: "profile", child: Text("Profile")),
               const PopupMenuItem(value: "settings", child: Text("Settings")),
-              const PopupMenuItem(value: "logout", child: Text("Logout")),
             ],
           ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.lightGreenAccent),
+            tooltip: 'Logout',
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            },
+          ),
         ],
+
       ),
       body: Row(
         children: [
@@ -95,65 +111,111 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSideMenu() {
-    return Container(
-      width: 220,
-      decoration: BoxDecoration(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: _isMenuCollapsed ? 70:220,
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.deepPurple.shade800, Colors.deepPurple.shade600],
+          colors: [Color(0xFF4A90E2), Color(0xFF7E57C2)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
       ),
-      child: ListView(
-        children: [
-          _buildMenuItem(DashboardMenu.dashboard, Icons.dashboard, "Dashboard"),
-          _buildMenuItem(DashboardMenu.orders, Icons.shopping_cart, "Orders"),
-          _buildMenuItem(DashboardMenu.products, Icons.store, "Products"),
-          _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase"),
-          _buildMenuItem(DashboardMenu.trackship, Icons.local_shipping, "Trackship"),
-          _buildMenuItem(DashboardMenu.vendors, Icons.store_mall_directory, "Vendors"),
-          _buildMenuItem(DashboardMenu.combos, Icons.all_inbox, "Combos")
-        ],
+
+      child: Column(
+          children: [
+    Align(
+    alignment: Alignment.topRight,
+      child: IconButton(
+        icon: Icon(
+          _isMenuCollapsed ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
+          color: Colors.white,
+          size: 18,
+        ),
+        onPressed: () {
+          setState(() => _isMenuCollapsed = !_isMenuCollapsed);
+        },
       ),
+    ),
+    Expanded(
+    child: ListView(
+    children: [
+    if (isAdmin)
+    _buildMenuItem(DashboardMenu.dashboard, Icons.dashboard, "Dashboard", allowed: true),
+    _buildMenuItem(DashboardMenu.orders, Icons.shopping_cart, "Orders", allowed: isAdmin || isManager),
+    _buildMenuItem(DashboardMenu.products, Icons.store, "Products", allowed: isAdmin || isManager),
+    _buildMenuItem(DashboardMenu.combos, Icons.all_inbox, "Combos", allowed: isAdmin || isManager),
+    _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase", allowed: isAdmin),
+    _buildMenuItem(DashboardMenu.trackship, Icons.local_shipping, "Trackship", allowed: true),
+    _buildMenuItem(DashboardMenu.vendors, Icons.store_mall_directory, "Vendors", allowed: isAdmin),
+    _buildMenuItem(DashboardMenu.customers, Icons.person, "Customers", allowed: isAdmin),
+    _buildMenuItem(DashboardMenu.queries, Icons.live_help_sharp, "Queries", allowed: isAdmin || isManager),
+    _buildMenuItem(DashboardMenu.returns, Icons.assignment_returned, "Returns", allowed: isAdmin || isManager),
+    ],
+    ),
+    ),
+    ],
+    ),
     );
   }
 
-  Widget _buildMenuItem(DashboardMenu menu, IconData icon, String title) {
+  Widget _buildMenuItem(DashboardMenu menu, IconData icon, String title, {required bool allowed}) {
     final isSelected = selectedMenu == menu;
-    return ListTile(
-      selected: isSelected,
-      leading: Icon(icon, color: isSelected ? Colors.white : Colors.white70),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.white70,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
+    if (!allowed) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
       ),
-      tileColor: isSelected ? Colors.deepPurple.shade400 : null,
-      onTap: () => setState(() => selectedMenu = menu),
+      child: ListTile(
+        leading: Icon(icon, color: Colors.white),
+        title: _isMenuCollapsed
+            ? null
+            : Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        onTap: () => setState(() => selectedMenu = menu),
+      ),
     );
   }
 
   Widget _buildContent() {
     switch (selectedMenu) {
-      case DashboardMenu.dashboard:
-        return _buildDashboardContent();
-      case DashboardMenu.orders:
-        return const OrdersScreen();
-      case DashboardMenu.products:
-        return const ProductsScreen();
-      case DashboardMenu.purchases:
-        return const PurchasePage();
-      case DashboardMenu.trackship:
-        return TrackShipScreen();
-      case DashboardMenu.vendors:
-        return const VendorScreen();
-      case DashboardMenu.combos:
-        return const ComboScreen();
+    case DashboardMenu.dashboard:
+    return isAdmin ? _buildDashboardContent() : _noAccess();
+    case DashboardMenu.orders:
+    return (isAdmin || isManager) ? const OrdersScreen() : _noAccess();
+    case DashboardMenu.products:
+    return (isAdmin || isManager) ? const ProductsScreen() : _noAccess();
+    case DashboardMenu.combos:
+    return const ComboScreen();
+    case DashboardMenu.purchases:
+    return isAdmin ? const PurchasePage() : _noAccess();
+    case DashboardMenu.trackship:
+    return TrackShipScreen();
+    case DashboardMenu.vendors:
+    //return const VendorScreen();
+    return isAdmin ? const VendorScreen() : _noAccess();
+    case DashboardMenu.customers:
+    return isAdmin ? const CustomersScreen() : _noAccess();
+    case DashboardMenu.queries:
+    return (isAdmin || isManager) ? const QueriesScreen() : _noAccess();
+    case DashboardMenu.returns:
+    return (isAdmin || isManager) ? const ReturnsScreen() : _noAccess();
     }
   }
 
+  Widget _noAccess() {
+    return const Center(
+      child: Text("🚫 You do not have permission to view this page",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+    );
+  }
   Widget _buildDashboardContent() {
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 1000;
@@ -161,23 +223,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               "Dashboard Overview",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(
-                  child: Text(
-                    "Data for: ${_selectedDate.toLocal().toString().split(' ')[0]}",
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                const Text(
+                  "Data for: ",
+                  style: TextStyle(fontSize: 16),
+                ),
+                Text(
+                  _selectedDate.toLocal().toString().split(' ')[0],
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(width: 8),
                 IconButton(
@@ -186,7 +251,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 40),
 
             // --- Summary Cards ---
             FutureBuilder<List<Map<String, dynamic>>?>(
@@ -206,47 +271,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ? dailyStats[0]['order_count']?.toString() ?? '0'
                     : '0';
 
-                final cols = isDesktop ? 4 : (isTablet ? 2 : 1);
-                return GridView(
+                final crossAxisCount = isDesktop ? 4 : (isTablet ? 2 : 1);
+                return GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: cols,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    mainAxisExtent: 110,
-                  ),
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: isDesktop ? 2.5 : 2.0,
                   children: [
                     _SummaryCard(
                       title: "Sales (Today)",
                       value: "₹$totalSales",
-                      color: Colors.blue,
+                      color: const Color(0xFF7E57C2),
                       icon: Icons.currency_rupee,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                     ),
                     _SummaryCard(
                       title: "Orders (Today)",
                       value: orderCount,
                       color: Colors.green,
                       icon: Icons.shopping_bag,
+                      gradient: LinearGradient(
+                        colors: [Colors.green.shade400, Colors.green.shade700],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                     ),
                     const _SummaryCard(
                         title: "Customers",
                         value: "0",
                         color: Colors.orange,
-                        icon: Icons.people),
+                        icon: Icons.people,
+                        gradient: LinearGradient(
+                          colors: [Colors.orange, Colors.deepOrange],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )),
                     const _SummaryCard(
                         title: "Products",
                         value: "0",
                         color: Colors.purple,
-                        icon: Icons.inventory),
+                        icon: Icons.inventory,
+                        gradient: LinearGradient(
+                          colors: [Colors.purple, Colors.deepPurple],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )),
                   ],
                 );
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // --- Line Chart for Last Week ---
-            const Text("Weekly Sales & Orders", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text("Weekly Sales & Orders", style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             FutureBuilder<List<Map<String, dynamic>>?>(
               future: _supabaseService.getWeeklySalesStats(),
@@ -267,48 +350,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ordersSpots.add(FlSpot(day, (data[i]['order_count'] ?? 0).toDouble()));
                 }
 
-                return SizedBox(
-                  height: 250,
-                  child: LineChart(
-                    LineChartData(
-                      gridData: FlGridData(show: true),
-                      titlesData: FlTitlesData(
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: true, reservedSize: 40),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            interval: 1,
-                            getTitlesWidget: (value, meta) {
-                              int idx = value.toInt();
-                              if (idx >= 0 && idx < data.length) {
-                                final date = DateTime.parse(data[idx]['sale_date']);
-                                return Text("${date.month}/${date.day}");
-                              }
-                              return const Text("");
+                return Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      height: 250,
+                      child: LineChart(
+                        LineChartData(
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: true,
+                            horizontalInterval: 1,
+                            verticalInterval: 1,
+                            getDrawingHorizontalLine: (value) {
+                              return FlLine(
+                                color: Colors.grey.withOpacity(0.3),
+                                strokeWidth: 1,
+                              );
+                            },
+                            getDrawingVerticalLine: (value) {
+                              return FlLine(
+                                color: Colors.grey.withOpacity(0.3),
+                                strokeWidth: 1,
+                              );
                             },
                           ),
+                          titlesData: FlTitlesData(
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                            ),
+                            rightTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            topTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                interval: 1,
+                                getTitlesWidget: (value, meta) {
+                                  int idx = value.toInt();
+                                  if (idx >= 0 && idx < data.length) {
+                                    final date = DateTime.parse(data[idx]['sale_date']);
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 8.0),
+                                      child: Text(
+                                        "${date.day}",
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    );
+                                  }
+                                  return const Text("");
+                                },
+                              ),
+                            ),
+                          ),
+                          borderData: FlBorderData(
+                            show: true,
+                            border: Border.all(color: Colors.grey.withOpacity(0.3), width: 1),
+                          ),
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: salesSpots,
+                              isCurved: true,
+                              color: Colors.blue.shade700,
+                              barWidth: 3,
+                              dotData: FlDotData(show: true),
+                              belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.2)),
+                            ),
+                            LineChartBarData(
+                              spots: ordersSpots,
+                              isCurved: true,
+                              color: Colors.green.shade700,
+                              barWidth: 3,
+                              dotData: FlDotData(show: true),
+                              belowBarData: BarAreaData(show: true, color: Colors.green.withOpacity(0.2)),
+                            ),
+                          ],
                         ),
                       ),
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: salesSpots,
-                          isCurved: true,
-                          color: Colors.blue,
-                          barWidth: 3,
-                          dotData: FlDotData(show: true),
-                          belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.2)),
-                        ),
-                        LineChartBarData(
-                          spots: ordersSpots,
-                          isCurved: true,
-                          color: Colors.green,
-                          barWidth: 3,
-                          dotData: FlDotData(show: true),
-                          belowBarData: BarAreaData(show: true, color: Colors.green.withOpacity(0.2)),
-                        ),
-                      ],
                     ),
                   ),
                 );
@@ -327,42 +448,64 @@ class _SummaryCard extends StatelessWidget {
   final String value;
   final Color color;
   final IconData icon;
+  final Gradient? gradient;
 
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.color,
     required this.icon,
+    this.gradient,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: color.withOpacity(0.15),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: color.withOpacity(0.25),
-              child: Icon(icon, color: color),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(title, style: TextStyle(fontSize: 16, color: color)),
-                  const SizedBox(height: 4),
-                  Text(value,
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-                ],
-              ),
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: gradient,
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Icon(icon, color: Colors.white.withOpacity(0.8), size: 28),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

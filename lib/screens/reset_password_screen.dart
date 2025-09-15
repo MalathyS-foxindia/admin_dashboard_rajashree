@@ -1,12 +1,11 @@
-// lib/screens/reset_password_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
-  final String email;
-  const ResetPasswordScreen({super.key, required this.email});
+  final String? email;
+  const ResetPasswordScreen({super.key, this.email});
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
@@ -33,10 +32,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         const SnackBar(content: Text("Passwords do not match.")),
       );
       return;
-
     }
-    debugPrint("📩 ForgotPassword submitted: $newPwd");
-    Navigator.pushNamed(context, '/reset-password', arguments: {'email': newPwd});
+
     setState(() => _loading = true);
 
     try {
@@ -54,11 +51,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         body: jsonEncode({'password': newPwd}),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
+      if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("✅ Password reset successful")),
         );
-        Navigator.popUntil(context, (r) => r.isFirst); // go back to login
+        Navigator.popUntil(context, (r) => r.isFirst); // back to login
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("❌ Failed: ${response.body}")),
@@ -75,7 +72,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final args =
+    ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final email = args?['email'] ?? widget.email ?? "";
+
     final isWide = MediaQuery.of(context).size.width > 600;
+
     return Scaffold(
       body: Container(
         color: Theme.of(context).colorScheme.surface,
@@ -89,7 +91,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 child: Card(
                   elevation: 8,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -97,45 +100,52 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 22),
                         decoration: const BoxDecoration(
-                          borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(16)),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(16),
+                          ),
                           gradient: LinearGradient(
-                              colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)]),
+                            colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)],
+                          ),
                         ),
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset('images/logo.png',
                                 height: 56, width: 56, fit: BoxFit.contain),
                             const SizedBox(height: 10),
-                            Text('Reset Password',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium!
-                                    .copyWith(color: Colors.white)),
+                            Text(
+                              'Reset Password',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium!
+                                  .copyWith(color: Colors.white),
+                            ),
                           ],
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.all(18),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("Resetting password for: ${widget.email}"),
+                            if (email.isNotEmpty)
+                              Text("Resetting password for: $email"),
                             const SizedBox(height: 12),
                             TextField(
                               controller: _newPwdCtrl,
                               obscureText: true,
                               decoration: const InputDecoration(
-                                  labelText: 'New Password',
-                                  prefixIcon: Icon(Icons.lock)),
+                                labelText: 'New Password',
+                                prefixIcon: Icon(Icons.lock),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             TextField(
                               controller: _confirmNewPwdCtrl,
                               obscureText: true,
                               decoration: const InputDecoration(
-                                  labelText: 'Confirm New Password',
-                                  prefixIcon: Icon(Icons.lock)),
+                                labelText: 'Confirm New Password',
+                                prefixIcon: Icon(Icons.lock),
+                              ),
                             ),
                             const SizedBox(height: 20),
                             SizedBox(
@@ -144,10 +154,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                               child: FilledButton.tonalIcon(
                                 icon: _loading
                                     ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2))
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
                                     : const Icon(Icons.refresh),
                                 label: const Text('Reset'),
                                 onPressed: _loading ? null : _reset,
@@ -155,7 +167,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                             ),
                           ],
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -167,4 +179,3 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 }
-

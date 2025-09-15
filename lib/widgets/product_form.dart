@@ -406,7 +406,7 @@ late ValueNotifier<bool> _activeNotifier;
                 dense: true,
                 title: Text(value ? "Active" : "Inactive"),
                 value: value,
-                activeThumbColor: Colors.green,
+                thumbColor: MaterialStateProperty.all(Colors.green),
                 onChanged: (val) => m['isActive'].value = val,
               ),
             ),
@@ -590,7 +590,7 @@ final activeNotifier = ValueNotifier<bool>(
                             const InputDecoration(labelText: 'Category'));
                   }
                   return DropdownButtonFormField<String>(
-                    initialValue: _category.text.isNotEmpty ? _category.text : null,
+                    value: _category.text.isNotEmpty ? _category.text : null,
                     items: cats
                         .map((c) =>
                             DropdownMenuItem(value: c, child: Text(c)))
@@ -639,7 +639,7 @@ ValueListenableBuilder<bool>(
     dense: true,
     title: Text(value ? "Active" : "Inactive"),
     value: value,
-    activeThumbColor: Colors.green,
+    thumbColor: MaterialStateProperty.all(Colors.green),
     onChanged: (val) => _activeNotifier.value = val,
   ),
 ),

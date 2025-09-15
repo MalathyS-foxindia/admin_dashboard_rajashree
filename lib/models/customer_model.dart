@@ -1,27 +1,23 @@
+// lib/models/customer_model.dart
 class Customer {
   final int customerId;
-  final String? customerName;
-  final String? mobileNumber;
-  final String? email;
-  final String? passwordHash;
-  final DateTime? createdAt;
+  final String fullName;
+  final String mobileNumber;
+  final String email;
   final String? address;
-  final String? state;
-  final String? pincode;
+  final String? state; // from public.state enum
+  final DateTime createdAt;
 
   Customer({
     required this.customerId,
-    this.customerName,
-    this.mobileNumber,
-    this.email,
-    this.passwordHash,
-    this.createdAt,
+    required this.fullName,
+    required this.mobileNumber,
+    required this.email,
+    required this.createdAt,
     this.address,
     this.state,
-    this.pincode,
   });
 
-  /// ---- JSON FROM SUPABASE ----
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
       customerId: json['customer_id'] as int,
