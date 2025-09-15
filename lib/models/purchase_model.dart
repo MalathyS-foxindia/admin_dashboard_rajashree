@@ -1,5 +1,5 @@
-import 'package:admin_dashboard_rajshree/models/products_model.dart';
-import 'package:admin_dashboard_rajshree/models/vendor_model.dart';
+import 'package:admin_dashboard_rajashree/models/products_model.dart';
+import 'package:admin_dashboard_rajashree/models/vendor_model.dart';
 
 class PurchaseItem {
   final int purchaseItemId;

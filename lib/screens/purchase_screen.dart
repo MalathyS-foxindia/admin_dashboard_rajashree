@@ -1,13 +1,15 @@
 import 'dart:io';
-import 'package:admin_dashboard_rajshree/models/purchase_model.dart';
-import 'package:admin_dashboard_rajshree/providers/purchase_provider.dart';
-import 'package:admin_dashboard_rajshree/providers/vendor_provider.dart';
-import 'package:admin_dashboard_rajshree/providers/product_provider.dart';
+import 'package:admin_dashboard_rajashree/models/purchase_model.dart';
+import 'package:admin_dashboard_rajashree/providers/purchase_provider.dart';
+import 'package:admin_dashboard_rajashree/providers/vendor_provider.dart';
+import 'package:admin_dashboard_rajashree/providers/product_provider.dart';
 //import 'package:admin_dashboard_rajshree/services/file_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../services/file_service.dart';
 
 class PurchasePage extends StatefulWidget {
   const PurchasePage({super.key});
@@ -163,12 +165,12 @@ class _PurchasePageState extends State<PurchasePage> {
                                   icon: const Icon(Icons.download,
                                       color: Colors.blue),
                                   onPressed: () {
-                                  //   FileService.downloadAndSaveImage(
-                                  //     context,
-                                  //     purchase.invoiceImage!,
-                                  //     fileName:
-                                  //     "invoice_${purchase.invoiceNo}.jpg",
-                                  //   );
+                                    FileService.downloadAndSaveImage(
+                                       context,
+                                      purchase.invoiceImage!,
+                                      fileName:
+                                       "invoice_${purchase.invoiceNo}.jpg",
+                                     );
                                    },
                                 )
                               ],
@@ -306,7 +308,7 @@ class _AddPurchaseDialogState extends State<AddPurchaseDialog> {
                 v == null || v.isEmpty ? "Enter Invoice No" : null,
               ),
               DropdownButtonFormField<int>(
-                initialValue: selectedVendorId,
+                value: selectedVendorId,
                 hint: const Text("Select Vendor"),
                 items: vendors.map((v) {
                   return DropdownMenuItem<int>(
@@ -365,7 +367,7 @@ class _AddPurchaseDialogState extends State<AddPurchaseDialog> {
                     Expanded(
                       flex: 3,
                       child: DropdownButtonFormField(
-                        initialValue: item["variant"],
+                        value: item["variant"],
                         hint: const Text("Select SKU"),
                         items: products.expand((p) => p.variants ?? []).map((v) {
                           return DropdownMenuItem(
