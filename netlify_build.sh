@@ -14,6 +14,9 @@ flutter config --enable-web
 echo "🔍 Checking Flutter setup..."
 flutter doctor
 
+echo "Flutter Clean..."
+flutter clean
+
 echo "📥 Fetching dependencies..."
 flutter pub get
 
