@@ -1,6 +1,5 @@
 [build]
-base = "/"
-command = "bash ./netlify_build.sh"
+command = "flutter build web --release"
 publish = "build/web"
 
 [build.environment]
