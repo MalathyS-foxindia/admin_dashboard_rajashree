@@ -3,7 +3,8 @@ import 'package:admin_dashboard_rajashree/models/purchase_model.dart';
 import 'package:admin_dashboard_rajashree/providers/purchase_provider.dart';
 import 'package:admin_dashboard_rajashree/providers/vendor_provider.dart';
 import 'package:admin_dashboard_rajashree/providers/product_provider.dart';
-//import 'package:admin_dashboard_rajshree/services/file_service.dart';
+import 'package:admin_dashboard_rajashree/services/file_service.dart';
+import 'package:admin_dashboard_rajashree/services/excel_service.dart'; // ✅ new service for export
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +27,8 @@ class _PurchasePageState extends State<PurchasePage> {
   String _searchQuery = '';
 
   List<Purchase> _filteredPurchases = [];
+  final Set<int> _selectedPurchases = {}; // ✅ selected row IDs
+  bool _selectAll = false; // ✅ track "Select All"
 
   @override
   void initState() {
@@ -47,6 +50,8 @@ class _PurchasePageState extends State<PurchasePage> {
             purchase.invoiceNo.toLowerCase().contains(lowerCaseQuery);
       }).toList();
       _currentPage = 0;
+      _selectedPurchases.clear();
+      _selectAll = false;
     });
   }
 
@@ -60,29 +65,78 @@ class _PurchasePageState extends State<PurchasePage> {
     );
   }
 
+  Future<void> _exportToExcel() async {
+    final purchasesToExport = _selectedPurchases.isNotEmpty
+        ? _filteredPurchases
+        .where((p) => _selectedPurchases.contains(p.purchaseId))
+        .toList()
+        : _filteredPurchases;
+
+    if (purchasesToExport.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("⚠️ No purchases available to export"),
+        backgroundColor: Colors.orange,
+      ));
+      return;
+    }
+
+    final success = await ExcelService.exportPurchasesToExcel(purchasesToExport);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(success ? "✅ Exported to Excel" : "❌ Failed to export"),
+      backgroundColor: success ? Colors.green : Colors.red,
+    ));
+  }
+
+  void _toggleSelectAll(bool? checked) {
+    setState(() {
+      _selectAll = checked ?? false;
+      _selectedPurchases.clear();
+      if (_selectAll) {
+        _selectedPurchases.addAll(_paginatedPurchases
+            .map((purchase) => purchase.purchaseId!)
+            .toList());
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('Purchase Report'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => const AddPurchaseDialog(),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              icon: const Icon(Icons.add),
-              label: const Text("New Purchase"),
+          ElevatedButton.icon(
+            onPressed: _exportToExcel,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
             ),
+            icon: const Icon(Icons.download),
+            label: const Text("Export to Excel"),
           ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => const AddPurchaseDialog(),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.add),
+            label: const Text("New Purchase"),
+          ),
+          const SizedBox(width: 12),
         ],
       ),
       body: Consumer<PurchaseProvider>(
@@ -99,94 +153,172 @@ class _PurchasePageState extends State<PurchasePage> {
           if (_filteredPurchases.isEmpty && _searchQuery.isEmpty) {
             _filteredPurchases = List.from(provider.purchases);
           }
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextField(
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                // 🔍 Search bar
+                TextField(
                   controller: _searchController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Search by Vendor or Invoice No',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
                   onChanged: (value) {
                     _searchQuery = value;
                     _filterAndPaginateData(provider.purchases);
                   },
                 ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SingleChildScrollView(
-                    child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('Purchase ID')),
-                        DataColumn(label: Text('Invoice No')),
-                        DataColumn(label: Text('Vendor Name')),
-                        DataColumn(label: Text('Invoice Date')),
-                        DataColumn(label: Text('Invoice Image')),
-                        DataColumn(label: Text('Total Amount')),
-                        DataColumn(label: Text('Item Count')),
-                      ],
-                      rows: _paginatedPurchases.map((purchase) {
-                        return DataRow(cells: [
-                          DataCell(Text(purchase.purchaseId.toString())),
-                          DataCell(Text(purchase.invoiceNo)),
-                          DataCell(Text(purchase.vendordetails.name)),
-                          DataCell(Text(
-                            "${purchase.invoiceDate!.day}-${purchase.invoiceDate!.month}-${purchase.invoiceDate!.year}",
-                          )),
-                          DataCell(
-                            purchase.invoiceImage != null
-                                ? Row(
-                              children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (_) => Dialog(
-                                        child: Image.network(
-                                          purchase.invoiceImage!,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  child: Image.network(
-                                    purchase.invoiceImage!,
-                                    width: 50,
-                                    height: 50,
-                                    fit: BoxFit.cover,
-                                  ),
+                const SizedBox(height: 16),
+
+                // 📊 Table
+                Expanded(
+                  child: Card(
+                    elevation: 6,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SingleChildScrollView(
+                          child: DataTable(
+                            headingRowColor: WidgetStateProperty.all(
+                              Colors.blue.shade700,
+                            ),
+                            headingTextStyle: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
+                            columns: [
+                              DataColumn(
+                                label: Checkbox(
+                                  value: _selectAll,
+                                  onChanged: _toggleSelectAll,
+                                  checkColor: Colors.white,
+                                  fillColor: WidgetStateProperty.all(
+                                      Colors.white.withOpacity(0.8)),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.download,
-                                      color: Colors.blue),
-                                  onPressed: () {
-                                    FileService.downloadAndSaveImage(
-                                       context,
-                                      purchase.invoiceImage!,
-                                      fileName:
-                                       "invoice_${purchase.invoiceNo}.jpg",
-                                     );
-                                   },
-                                )
-                              ],
-                            )
-                                : const Text("-"),
+                              ),
+                              const DataColumn(label: Text('Purchase ID')),
+                              const DataColumn(label: Text('Invoice No')),
+                              const DataColumn(label: Text('Vendor Name')),
+                              const DataColumn(label: Text('Invoice Date')),
+                              const DataColumn(label: Text('Invoice Image')),
+                              const DataColumn(label: Text('Total Amount')),
+                              const DataColumn(label: Text('Item Count')),
+                            ],
+                            rows: List.generate(_paginatedPurchases.length,
+                                    (index) {
+                                  final purchase = _paginatedPurchases[index];
+                                  final isSelected = _selectedPurchases
+                                      .contains(purchase.purchaseId);
+                                  return DataRow(
+                                    selected: isSelected,
+                                    cells: [
+                                      DataCell(Checkbox(
+                                        value: isSelected,
+                                        onChanged: (checked) {
+                                          setState(() {
+                                            if (checked == true) {
+                                              _selectedPurchases
+                                                  .add(purchase.purchaseId!);
+                                            } else {
+                                              _selectedPurchases
+                                                  .remove(purchase.purchaseId);
+                                              _selectAll = false;
+                                            }
+                                          });
+                                        },
+                                      )),
+                                      DataCell(Text(purchase.purchaseId.toString())),
+                                      DataCell(Text(purchase.invoiceNo)),
+                                      DataCell(Text(purchase.vendordetails.name)),
+                                      DataCell(Text(
+                                        "${purchase.invoiceDate!.day}-${purchase.invoiceDate!.month}-${purchase.invoiceDate!.year}",
+                                      )),
+                                      DataCell(
+                                        purchase.invoiceImage != null
+                                            ? Row(
+                                          children: [
+                                            GestureDetector(
+                                              onTap: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (_) => Dialog(
+                                                    child: Image.network(
+                                                      purchase.invoiceImage!,
+                                                      fit: BoxFit.contain,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              child: Image.network(
+                                                purchase.invoiceImage!,
+                                                width: 50,
+                                                height: 50,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.download,
+                                                  color: Colors.blue),
+                                              onPressed: () {
+                                                FileService
+                                                    .downloadAndSaveImage(
+                                                  context,
+                                                  purchase.invoiceImage!,
+                                                  fileName:
+                                                  "invoice_${purchase.invoiceNo}.jpg",
+                                                );
+                                              },
+                                            )
+                                          ],
+                                        )
+                                            : const Text("-"),
+                                      ),
+                                      DataCell(Text(
+                                          '₹${purchase.totalAmount.toStringAsFixed(2)}')),
+                                      DataCell(
+                                          Text('${purchase.items.length} items')),
+                                    ],
+                                  );
+                                }),
                           ),
-                          DataCell(Text(
-                              '₹${purchase.totalAmount.toStringAsFixed(2)}')),
-                          DataCell(Text('${purchase.items.length} items')),
-                        ]);
-                      }).toList(),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+
+                // 📑 Pagination aligned center
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      onPressed: _currentPage > 0
+                          ? () => setState(() => _currentPage--)
+                          : null,
+                    ),
+                    Text("Page ${_currentPage + 1} of "
+                        "${(_filteredPurchases.length / _pageSize).ceil()}"),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      onPressed: ((_currentPage + 1) * _pageSize <
+                          _filteredPurchases.length)
+                          ? () => setState(() => _currentPage++)
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           );
         },
       ),

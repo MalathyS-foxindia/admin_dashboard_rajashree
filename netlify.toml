@@ -1,0 +1,13 @@
+[build]
+command = "flutter build web --release"
+publish = "build/web"
+
+[build.environment]
+# Ensure Flutter is available
+FLUTTER_VERSION = "3.24.0" # change to your Flutter version
+NODE_VERSION = "18"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200

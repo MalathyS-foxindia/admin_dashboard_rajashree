@@ -1,11 +1,12 @@
 
+import 'package:admin_dashboard_rajashree/providers/queries_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Providers
-import 'package:admin_dashboard_rajshree/providers/combo_provider.dart';
+import 'package:admin_dashboard_rajashree/providers/combo_provider.dart';
 import 'package:admin_dashboard_rajashree/providers/customer_provider.dart';
 import 'package:admin_dashboard_rajashree/providers/purchase_provider.dart';
 import 'package:admin_dashboard_rajashree/providers/shipment_provider.dart';
@@ -48,6 +49,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider( create: (_) => VendorProvider()),
         ChangeNotifierProvider(create: (_) => ComboProvider()),
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
+        ChangeNotifierProvider(create: (_) => QueriesProvider()),
 
       ],
       child: MaterialApp(

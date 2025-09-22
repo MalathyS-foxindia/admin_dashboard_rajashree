@@ -1,3 +1,8 @@
+
+import 'dart:js_interop';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'customer_model.dart';
 
 class Order {
@@ -81,7 +86,7 @@ class Order {
       'order_status': orderStatus,
       'invoice_url': invoiceUrl,
       'shipment_status': shipmentStatus,
-      'customers': customer?.toJson(),
+      'customers': customer,
     };
   }
 }

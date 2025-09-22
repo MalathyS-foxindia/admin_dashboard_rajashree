@@ -81,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // Background Image
           Positioned.fill(
             child: Image.asset(
-              'images/login_bg3.jpg', // ✅ You need to add this image to your assets folder
+              'images/login_bg4.png', // ✅ You need to add this image to your assets folder
               fit: BoxFit.cover,
             ),
           ),
