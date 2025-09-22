@@ -24,8 +24,8 @@ class ComboProvider extends ChangeNotifier {
   int get totalPages => _totalPages;
   bool get hasMore => _hasMore;
 
-  final String baseUrl = dotenv.env['SUPABASE_FUNCTION_URL'] ??
-      "https://gvsorguincvinuiqtooo.supabase.co";
+  final String baseUrl = String.fromEnvironment('SUPABASE_URL');
+     // "https://gvsorguincvinuiqtooo.supabase.co";
 
   final String? apiKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 

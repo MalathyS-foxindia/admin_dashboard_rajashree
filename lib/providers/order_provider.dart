@@ -90,8 +90,7 @@ class OrderProvider with ChangeNotifier {
         'Authorization': 'Bearer ${String.fromEnvironment('SUPABASE_ANON_KEY')}'
       };
       final response = await http.get(
-        Uri.parse(
-            'https://gvsorguincvinuiqtooo.supabase.co/functions/v1/generateinvoice?order_id=$orderId'),
+        Uri.parse('${String.fromEnvironment('SUPABASE_URL')}/functions/v1/generateinvoice?order_id=$orderId'),
         headers: headers,
       );
 
