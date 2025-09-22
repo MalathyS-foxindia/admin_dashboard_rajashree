@@ -20,4 +20,14 @@ flutter pub get
 echo "🌐 Building Flutter web..."
 flutter build web --release
 
-echo "🎉 Flutter web build completed."
+echo "📄 Adding Netlify redirects..."
+# Ensure build/web exists before copying
+mkdir -p build/web
+cat > build/web/_redirects <<EOL
+/*    /index.html   200
+EOL
+
+echo "🎉 Flutter web build completed with redirects."
+
+
+
