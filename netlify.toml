@@ -1,5 +1,6 @@
 [build]
-command = "flutter build web --release"
+base = "/"
+command = "bash ./netlify_build.sh"
 publish = "build/web"
 
 [build.environment]
@@ -11,3 +12,4 @@ NODE_VERSION = "18"
 from = "/*"
 to = "/index.html"
 status = 200
+
