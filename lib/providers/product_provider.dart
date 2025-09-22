@@ -7,8 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/products_model.dart';
 
 class ProductProvider with ChangeNotifier {
-  final String _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
-  final String _anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  final String _supabaseUrl = String.fromEnvironment('SUPABASE_URL') ?? '';
+  final String _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY') ?? '';
 
   ProductProvider() {
     if (_supabaseUrl.isEmpty || _anonKey.isEmpty) {

@@ -5,8 +5,8 @@ import 'package:http/http.dart' as http;
 import '../models/queries_model.dart';
 
 class QueriesProvider with ChangeNotifier {
-  final String _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
-  final String _anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  final String _supabaseUrl = String.fromEnvironment('SUPABASE_URL') ?? '';
+  final String _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY') ?? '';
 
   List<QueryModel> _queries = [];
   List<QueryModel> get queries => _queries;

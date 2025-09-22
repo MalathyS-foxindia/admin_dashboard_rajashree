@@ -6,8 +6,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/purchase_model.dart';
 
 class PurchaseProvider with ChangeNotifier {
-  final String _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
-  final String _anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  final String _supabaseUrl = String.fromEnvironment('SUPABASE_URL') ?? '';
+  final String _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY') ?? '';
 
   List<Purchase> _purchases = [];
   List<Purchase> get purchases => _purchases;

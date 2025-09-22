@@ -25,8 +25,8 @@ Future<void> main() async {
   await dotenv.load(fileName: 'assets/.env'); // Load env vars
 
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    url: String.fromEnvironment('SUPABASE_URL')!,
+    anonKey: String.fromEnvironment('SUPABASE_ANON_KEY')!,
   );
 
   runApp(const MyApp());

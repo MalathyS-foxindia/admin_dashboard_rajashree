@@ -33,7 +33,7 @@ class OrderProvider with ChangeNotifier {
     );
 
     final response = await http.get(uri, headers: {
-      'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}',
+      'Authorization': 'Bearer ${String.fromEnvironment('SUPABASE_ANON_KEY')}',
     });
 
     if (response.statusCode == 200) {
@@ -64,7 +64,7 @@ class OrderProvider with ChangeNotifier {
     );
 
     final headers = {
-      'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}'
+      'Authorization': 'Bearer ${String.fromEnvironment('SUPABASE_ANON_KEY')}'
     };
 
     try {
@@ -87,7 +87,7 @@ class OrderProvider with ChangeNotifier {
     try {
       print('Fetching JSON for order: $orderId');
       final headers = {
-        'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}'
+        'Authorization': 'Bearer ${String.fromEnvironment('SUPABASE_ANON_KEY')}'
       };
       final response = await http.get(
         Uri.parse(

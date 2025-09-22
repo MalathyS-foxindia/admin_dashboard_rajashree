@@ -6,8 +6,8 @@ import '../models/vendor_model.dart';
 import '../models/vendor_transaction_model.dart';
 
 class VendorProvider with ChangeNotifier {
-  final String _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
-  final String _anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  final String _supabaseUrl = String.fromEnvironment('SUPABASE_URL') ?? '';
+  final String _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY') ?? '';
 
   List<Vendor> _vendors = [];
   List<Vendor> get vendors => _vendors;

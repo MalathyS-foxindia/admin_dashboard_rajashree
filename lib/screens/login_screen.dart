@@ -32,8 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
+      final supabaseUrl = String.fromEnvironment('SUPABASE_URL')!;
+      final anonKey = String.fromEnvironment('SUPABASE_ANON_KEY')!;
 
       final response = await http.get(
         Uri.parse(
@@ -250,8 +250,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
+      final supabaseUrl = String.fromEnvironment('SUPABASE_URL')!;
+      final anonKey = String.fromEnvironment('SUPABASE_ANON_KEY')!;
 
       final response = await http.get(
         Uri.parse(

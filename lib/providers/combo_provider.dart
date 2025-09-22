@@ -27,11 +27,11 @@ class ComboProvider extends ChangeNotifier {
   final String baseUrl = dotenv.env['SUPABASE_FUNCTION_URL'] ??
       "https://gvsorguincvinuiqtooo.supabase.co";
 
-  final String? apiKey = dotenv.env['SUPABASE_ANON_KEY'];
+  final String? apiKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
   Map<String, String> get _headers => {
         "Content-Type": "application/json",
-        "Authorization": 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}' ?? "",
+        "Authorization": 'Bearer ${String.fromEnvironment('SUPABASE_ANON_KEY')}' ?? "",
       };
 
   /// ---------- FETCH ----------
@@ -168,8 +168,8 @@ Future<void> toggleStatus(int comboId, bool isActive) async {
       url,
       headers: {
         "Content-Type": "application/json",
-        "apikey": dotenv.env['SUPABASE_SERVICE_ROLE'] ?? "",
-        "Authorization": 'Bearer ${dotenv.env['SUPABASE_SERVICE_ROLE'] ?? ""}',
+        "apikey": String.fromEnvironment('SUPABASE_SERVICE_ROLE') ?? "",
+        "Authorization": 'Bearer ${String.fromEnvironment('SUPABASE_SERVICE_ROLE') ?? ""}',
          "Prefer": "return=representation",
       },
       body: jsonEncode({"is_active": isActive}),

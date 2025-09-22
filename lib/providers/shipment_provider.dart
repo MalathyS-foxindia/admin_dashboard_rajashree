@@ -24,8 +24,8 @@ class ShipmentProvider extends ChangeNotifier {
 
       if (kDebugMode) print('⏳ Fetching shipments from API...');
 
-      final supabaseUrl = dotenv.env['SUPABASE_URL'];
-      final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+      final supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+      final supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
       if (supabaseUrl == null || supabaseAnonKey == null) {
         throw Exception("Environment variables not found.");
@@ -65,7 +65,7 @@ class ShipmentProvider extends ChangeNotifier {
 
 
   Future<void> updateTrackingNumber(String orderId, String newTracking, String provider,bool isinline) async {
-    var apiUrl ="${dotenv.env['SUPABASE_URL']}/functions/v1/updateshipmenttracking?order_id=$orderId" ;
+    var apiUrl ="${String.fromEnvironment('SUPABASE_URL')}/functions/v1/updateshipmenttracking?order_id=$orderId" ;
     try {
       if(provider=="India Post")
       {
@@ -85,7 +85,7 @@ class ShipmentProvider extends ChangeNotifier {
         ),
         headers: {
          
-          "Authorization": "Bearer ${dotenv.env['SUPABASE_ANON_KEY']!}",
+          "Authorization": "Bearer ${String.fromEnvironment('SUPABASE_ANON_KEY')!}",
           "Content-Type": "application/json",
         },
         body: jsonEncode({"tracking_number": newTracking, "shipping_provider": provider}),

@@ -37,8 +37,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _loading = true);
 
     try {
-      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
+      final supabaseUrl = String.fromEnvironment('SUPABASE_URL')!;
+      final anonKey = String.fromEnvironment('SUPABASE_ANON_KEY')!;
 
       final response = await http.patch(
         Uri.parse('$supabaseUrl/rest/v1/users?email=eq.${widget.email}'),
