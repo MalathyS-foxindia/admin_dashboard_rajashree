@@ -25,8 +25,6 @@ class ComboProvider extends ChangeNotifier {
   bool get hasMore => _hasMore;
 
   final String baseUrl = String.fromEnvironment('SUPABASE_URL');
-     // "https://gvsorguincvinuiqtooo.supabase.co";
-
   final String? apiKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
   Map<String, String> get _headers => {
