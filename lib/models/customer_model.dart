@@ -1,4 +1,6 @@
 // lib/models/customer_model.dart
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 class Customer {
   final int customerId;
   final String fullName;
@@ -6,6 +8,7 @@ class Customer {
   final String email;
   final String? address;
   final String? state; // from public.state enum
+  final String? pinCode;
   final DateTime createdAt;
 
   Customer({
@@ -16,6 +19,7 @@ class Customer {
     required this.createdAt,
     this.address,
     this.state,
+    this.pinCode
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) {
