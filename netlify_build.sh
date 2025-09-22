@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+echo "🚀 Netlify build script started..."
+pwd
+ls -la
+
 echo "📦 Installing Flutter..."
 if [ ! -d "$HOME/flutter" ]; then
   git clone https://github.com/flutter/flutter.git -b stable $HOME/flutter

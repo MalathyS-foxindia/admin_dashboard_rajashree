@@ -1,7 +1,7 @@
 [build]
 base = "/"
 publish = "build/web"
-command = "bash ./netlify_build.sh"
+command = "bash ./scripts/netlify_build.sh"
 
 [build.environment]
 # Ensure Flutter is available
