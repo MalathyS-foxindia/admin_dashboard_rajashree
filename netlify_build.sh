@@ -18,7 +18,11 @@ echo "📥 Fetching dependencies..."
 flutter pub get
 
 echo "🌐 Building Flutter web..."
-flutter build web --release
+flutter build web --release \
+  --dart-define=SUPABASE_URL=$SUPABASE_URL \
+  --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
+  --dart-define=SUPABASE_SERVICE_ROLE=$SUPABASE_SERVICE_ROLE
+
 
 echo "📄 Adding Netlify redirects..."
 # Ensure build/web exists before copying
