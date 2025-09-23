@@ -22,7 +22,15 @@ import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: 'assets/.env'); // Load env vars
+  if (!kReleaseMode) {
+    // Local dev → use .env
+    await dotenv.load(fileName: 'assets/.env');
+  }
+
+  await Supabase.initialize(
+    url: kReleaseMode ? supabaseUrl : dotenv.env['SUPABASE_URL']!,
+    anonKey: kReleaseMode ? supabaseAnonKey : dotenv.env['SUPABASE_ANON_KEY']!,
+  );
 
   await Supabase.initialize(
     url: String.fromEnvironment('SUPABASE_URL')!,
