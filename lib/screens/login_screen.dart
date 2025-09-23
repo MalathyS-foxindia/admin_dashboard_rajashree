@@ -82,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // Background Image
           Positioned.fill(
             child: Image.asset(
-              'images/login_bg4.png', // ✅ You need to add this image to your assets folder
+              'assets/images/login_bg4.png', // ✅ You need to add this image to your assets folder
               fit: BoxFit.cover,
             ),
           ),
@@ -126,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Image.asset('images/logo.png',
+                            Image.asset('assets/images/logo.png',
                                 height: 56, width: 56, fit: BoxFit.contain),
                             const SizedBox(height: 10),
                             Text('Rajashree Fashion Admin',

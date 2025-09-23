@@ -109,7 +109,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         ),
                         child: Column(
                           children: [
-                            Image.asset('images/logo.png',
+                            Image.asset('assets/images/logo.png',
                                 height: 56, width: 56, fit: BoxFit.contain),
                             const SizedBox(height: 10),
                             Text(
