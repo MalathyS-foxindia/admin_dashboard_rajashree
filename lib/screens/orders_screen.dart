@@ -22,24 +22,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
   int _page = 0;
   int _pageSize = 10;
   final List<int> _pageSizeOptions = [10, 20, 50, 100];
-String? _selectedStatus;
-String? _selectedSource;
 
-final List<String> _statusOptions = [
-  'Pending',
-  'Completed',
-  'Cancelled',
-  'Failed',
-];
-
-final List<String> _sourceOptions = [
-  'Website',
-  'Whatsapp',
-];
+  /// 🔹 Define available filter categories
+  final Map<String, List<String>> _filterOptions = {
+    "Status": ["processing", "completed", "failed"],
+    "Source": ["Website", "Whatsapp"],
+    "Date": [] // empty list, we use DatePicker instead of dropdown
+  };
 
   bool _isGenerating = false;
   bool _isExporting = false;
   bool _showShipmentPage = false;
+
+  String? _selectedFilterCategory;
+  String? _selectedFilterValue;
+  DateTime? _selectedFilterDate;
 
   DateTime _selectedDate = DateTime.now();
   List<Map<String, dynamic>> _skuSummary = [];
@@ -48,8 +45,8 @@ final List<String> _sourceOptions = [
   @override
   void initState() {
     super.initState();
-    Future.microtask(() =>
-        Provider.of<OrderProvider>(context, listen: false).fetchOrders());
+    Future.microtask(
+        () => Provider.of<OrderProvider>(context, listen: false).fetchOrders());
     _loadSkuSummary();
   }
 
@@ -66,25 +63,38 @@ final List<String> _sourceOptions = [
   }
 
   List<Order> _applyFilter(List<Order> all) {
-  return all.where((order) {
-    final customer = order.customer;
+    return all.where((order) {
+      final customer = order.customer;
 
-    final matchesSearch =
-        (customer?.mobileNumber?.contains(searchQuery) ?? false) ||
-        (customer?.address?.toLowerCase().contains(searchQuery) ?? false) ||
-        (customer?.state?.toLowerCase().contains(searchQuery) ?? false) ||
-        order.source.toLowerCase().contains(searchQuery) ||
-        order.orderId.toLowerCase().contains(searchQuery);
+      final matchesSearch =
+          (customer?.mobileNumber?.contains(searchQuery) ?? false) ||
+              (customer?.address?.toLowerCase().contains(searchQuery) ?? false) ||
+              (customer?.state?.toLowerCase().contains(searchQuery) ?? false) ||
+              order.source.toLowerCase().contains(searchQuery) ||
+              order.orderId.toLowerCase().contains(searchQuery);
 
-    final matchesStatus =
-        _selectedStatus == null || order.orderStatus == _selectedStatus;
+      bool matchesFilter = true;
 
-    final matchesSource =
-        _selectedSource == null || order.source == _selectedSource;
+      if (_selectedFilterCategory != null) {
+        switch (_selectedFilterCategory) {
+          case "Status":
+            matchesFilter = order.orderStatus == _selectedFilterValue;
+            break;
+          case "Source":
+            matchesFilter = order.source == _selectedFilterValue;
+            break;
+          case "Date":
+            if (_selectedFilterDate != null) {
+              matchesFilter = order.orderDate ==
+                  _selectedFilterDate!.toLocal().toString().split(' ')[0];
+            }
+            break;
+        }
+      }
 
-    return matchesSearch && matchesStatus && matchesSource;
-  }).toList();
-}
+      return matchesSearch && matchesFilter;
+    }).toList();
+  }
 
   List<Order> _pagedOrders(List<Order> allFiltered) {
     final start = _page * _pageSize;
@@ -96,7 +106,8 @@ final List<String> _sourceOptions = [
   Future<void> _exportOrdersToExcel() async {
     if (_selectedOrderIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one order to export')),
+        const SnackBar(
+            content: Text('Please select at least one order to export')),
       );
       return;
     }
@@ -104,18 +115,17 @@ final List<String> _sourceOptions = [
     setState(() => _isExporting = true);
 
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
-    final selectedOrders = orderProvider.orders.where(
-      (order) => _selectedOrderIds.contains(order.orderId),
-    ).toList();
+    final selectedOrders = orderProvider.orders
+        .where((order) => _selectedOrderIds.contains(order.orderId))
+        .toList();
 
     final success = await ExcelService.exportToExcel(selectedOrders);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success
-              ? 'Orders exported to Excel!'
-              : 'Failed to export orders.'),
+          content:
+              Text(success ? 'Orders exported to Excel!' : 'Failed to export orders.'),
         ),
       );
     }
@@ -143,9 +153,7 @@ final List<String> _sourceOptions = [
         continue;
       }
 
-      final invoiceData =
-          await InvoiceService.generateInvoiceFromJson(jsonData);
-
+      final invoiceData = await InvoiceService.generateInvoiceFromJson(jsonData);
       final success =
           await orderProvider.uploadInvoiceToSupabaseStorage(invoiceData);
 
@@ -188,11 +196,14 @@ final List<String> _sourceOptions = [
                   Text("Customer ID: ${customer.customerId}"),
                   Text("Mobile: ${customer.mobileNumber}"),
                   Text("Email: ${customer.email}"),
-                  Text("Address: ${customer.address}, ${customer.state}, ${customer.pincode}"),
                 ],
-                Text("Amount: ₹${order.totalAmount} (Shipping: ₹${order.shippingAmount})"),
+                Text(
+                    "Shipping Address : ${order.name} , ${order.shippingAddress}, ${order.shippingState}, ${order.contactNumber}"),
+                Text(
+                    "Amount: ₹${order.totalAmount} (Shipping: ₹${order.shippingAmount})"),
                 Text("Source: ${order.source}"),
-                Text("Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
+                Text(
+                    "Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
                 if (order.orderNote.isNotEmpty) Text("Note: ${order.orderNote}"),
                 const Divider(),
                 const Text("Items", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -243,79 +254,127 @@ final List<String> _sourceOptions = [
               : Column(
                   children: [
                     /// 🔹 Top controls row
-Padding(
-  padding: const EdgeInsets.all(16),
-  child: Wrap(
-    spacing: 16,
-    runSpacing: 12,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: [
-      SizedBox(
-        width: 300,
-        child: TextField(
-          onChanged: filterOrders,
-          decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search),
-            hintText: 'Search by mobile, source, order id',
-            border: OutlineInputBorder(),
-          ),
-        ),
-      ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Wrap(
+                        spacing: 16,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 300,
+                            child: TextField(
+                              onChanged: filterOrders,
+                              decoration: const InputDecoration(
+                                prefixIcon: Icon(Icons.search),
+                                hintText: 'Search by mobile, source, order id',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
 
-      // Status filter
-      DropdownButton<String>(
-        hint: const Text("Filter by Status"),
-        value: _selectedStatus,
-        items: _statusOptions
-            .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-            .toList(),
-        onChanged: (v) => setState(() {
-          _selectedStatus = v;
-          _page = 0;
-        }),
-      ),
+                          // 🔹 Filter Dropdowns (Category + Value)
+                          DropdownButton<String>(
+                            hint: const Text("Choose Filter"),
+                            value: _selectedFilterCategory,
+                            items: _filterOptions.keys
+                                .map((cat) =>
+                                    DropdownMenuItem(value: cat, child: Text(cat)))
+                                .toList(),
+                            onChanged: (v) {
+                              setState(() {
+                                _selectedFilterCategory = v;
+                                _selectedFilterValue = null;
+                                _selectedFilterDate = null;
+                                _page = 0;
+                              });
+                            },
+                          ),
 
-      // Source filter
-      DropdownButton<String>(
-        hint: const Text("Filter by Source"),
-        value: _selectedSource,
-        items: _sourceOptions
-            .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-            .toList(),
-        onChanged: (v) => setState(() {
-          _selectedSource = v;
-          _page = 0;
-        }),
-      ),
+                          if (_selectedFilterCategory != null)
+                            _selectedFilterCategory == "Date"
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.date_range),
+                                        label: Text(
+                                          _selectedFilterDate != null
+                                              ? "${_selectedFilterDate!.toLocal()}"
+                                                  .split(' ')[0]
+                                              : "Select Date",
+                                        ),
+                                        onPressed: () async {
+                                          final picked = await showDatePicker(
+                                            context: context,
+                                            initialDate:
+                                                _selectedFilterDate ?? DateTime.now(),
+                                            firstDate: DateTime(2020),
+                                            lastDate: DateTime.now(),
+                                          );
+                                          if (picked != null) {
+                                            setState(() {
+                                              _selectedFilterDate = picked;
+                                              _page = 0;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                      if (_selectedFilterDate != null)
+                                        IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            setState(() {
+                                              _selectedFilterDate = null;
+                                            });
+                                          },
+                                        ),
+                                    ],
+                                  )
+                                : DropdownButton<String>(
+                                    hint: const Text("Select Value"),
+                                    value: _selectedFilterValue,
+                                    items: _filterOptions[_selectedFilterCategory]!
+                                        .map((val) => DropdownMenuItem(
+                                            value: val, child: Text(val)))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      setState(() {
+                                        _selectedFilterValue = v;
+                                        _page = 0;
+                                      });
+                                    },
+                                  ),
 
-      ElevatedButton.icon(
-        onPressed: _isGenerating ? null : () => _generateInvoices(context),
-        icon: _isGenerating
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.picture_as_pdf),
-        label: const Text('Generate Invoice'),
-      ),
-      ElevatedButton.icon(
-        onPressed: (_selectedOrderIds.isNotEmpty && !_isExporting)
-            ? _exportOrdersToExcel
-            : null,
-        icon: _isExporting
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.file_download),
-        label: Text('Export Excel (${_selectedOrderIds.length})'),
-      ),
-    ],
-  ),
-),
-
+                          ElevatedButton.icon(
+                            onPressed: _isGenerating
+                                ? null
+                                : () => _generateInvoices(context),
+                            icon: _isGenerating
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.picture_as_pdf),
+                            label: const Text('Generate Invoice'),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: (_selectedOrderIds.isNotEmpty && !_isExporting)
+                                ? _exportOrdersToExcel
+                                : null,
+                            icon: _isExporting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.file_download),
+                            label: Text('Export Excel (${_selectedOrderIds.length})'),
+                          ),
+                        ],
+                      ),
+                    ),
 
                     /// Orders Table
                     Expanded(
@@ -326,7 +385,7 @@ Padding(
                           child: DataTable(
                             showCheckboxColumn: true,
                             columns: const [
-                               DataColumn(label: Text("Date")),
+                              DataColumn(label: Text("Date")),
                               DataColumn(label: Text("Order ID")),
                               DataColumn(label: Text("Customer Name")),
                               DataColumn(label: Text("Mobile")),
@@ -335,11 +394,9 @@ Padding(
                               DataColumn(label: Text("Order Status")),
                               DataColumn(label: Text("Shipment Status")),
                               DataColumn(label: Text("Invoice")),
-                              DataColumn(label: Text("Payment"))
-
-                             
+                              DataColumn(label: Text("Payment")),
                             ],
-                            rows: pageOrders.map((order) {
+                            rows: _pagedOrders(allOrders).map((order) {
                               final isSelected =
                                   _selectedOrderIds.contains(order.orderId);
                               return DataRow(
@@ -354,7 +411,6 @@ Padding(
                                   });
                                 },
                                 cells: [
-                                  
                                   DataCell(Text(order.orderDate)),
                                   DataCell(
                                     InkWell(
@@ -364,7 +420,7 @@ Padding(
                                       onTap: () => _showOrderDetails(context, order),
                                     ),
                                   ),
-                                  DataCell(Text(order.customer?.customerName?.toString() ?? "N/A")),
+                                  DataCell(Text(order.customer?.fullName ?? "N/A")),
                                   DataCell(Text(order.customer?.mobileNumber ?? "N/A")),
                                   DataCell(Text(
                                       "₹${order.totalAmount.toStringAsFixed(2)}")),
@@ -386,8 +442,7 @@ Padding(
                                           child: const Icon(Icons.picture_as_pdf,
                                               color: Colors.red),
                                           onTap: () async {
-                                            final url =
-                                                Uri.parse(order.invoiceUrl!);
+                                            final url = Uri.parse(order.invoiceUrl!);
                                             if (await canLaunchUrl(url)) {
                                               await launchUrl(url,
                                                   mode: LaunchMode
@@ -403,13 +458,14 @@ Padding(
                                           },
                                         )
                                       : const Text("N/A")),
-                                      DataCell(
-                                    order.paymentTransactionId != null && order.paymentTransactionId!.isNotEmpty
+                                  DataCell(
+                                    order.paymentTransactionId != null &&
+                                            order.paymentTransactionId!.isNotEmpty
                                         ? InkWell(
                                             onTap: () {
                                               final url =
                                                   "https://dashboard.razorpay.com/app/orders/${order.paymentTransactionId}";
-                                              launchUrl(Uri.parse(url)); // from url_launcher package
+                                              launchUrl(Uri.parse(url));
                                             },
                                             child: Text(
                                               order.paymentTransactionId!,
@@ -421,7 +477,6 @@ Padding(
                                           )
                                         : const Text("Not Paid"),
                                   ),
-
                                 ],
                               );
                             }).toList(),
@@ -430,40 +485,38 @@ Padding(
                       ),
                     ),
 
-                   // inside build() -> Column(children: [...])
-
-
-/// 🔹 Pagination controls + Rows per page
-Padding(
-  padding: const EdgeInsets.all(12.0),
-  child: Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      IconButton(
-        onPressed: _page > 0 ? () => setState(() => _page--) : null,
-        icon: const Icon(Icons.chevron_left),
-      ),
-      Text('Page ${_page + 1} / $totalPages'),
-      IconButton(
-        onPressed: (_page + 1) < totalPages ? () => setState(() => _page++) : null,
-        icon: const Icon(Icons.chevron_right),
-      ),
-      const SizedBox(width: 20),
-      const Text("Rows per page: "),
-      DropdownButton<int>(
-        value: _pageSize,
-        items: _pageSizeOptions
-            .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
-            .toList(),
-        onChanged: (v) => setState(() {
-          _pageSize = v!;
-          _page = 0;
-        }),
-      ),
-    ],
-  ),
-),
-
+                    /// 🔹 Pagination controls + Rows per page
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          Text('Page ${_page + 1} / $totalPages'),
+                          IconButton(
+                            onPressed: (_page + 1) < totalPages
+                                ? () => setState(() => _page++)
+                                : null,
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                          const SizedBox(width: 20),
+                          const Text("Rows per page: "),
+                          DropdownButton<int>(
+                            value: _pageSize,
+                            items: _pageSizeOptions
+                                .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                                .toList(),
+                            onChanged: (v) => setState(() {
+                              _pageSize = v!;
+                              _page = 0;
+                            }),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
     );

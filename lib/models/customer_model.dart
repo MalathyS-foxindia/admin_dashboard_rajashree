@@ -7,6 +7,8 @@ class Customer {
   final String? address;
   final String? state; // from public.state enum
   final DateTime createdAt;
+  final String? pincode;
+  final String? passwordHash;
 
   Customer({
     required this.customerId,
@@ -16,21 +18,22 @@ class Customer {
     required this.createdAt,
     this.address,
     this.state,
+    this.pincode,
+    this.passwordHash,
   });
 
+  /// ---- FROM JSON ----
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
-      customerId: json['customer_id'] as int,
-      customerName: json['full_name'] as String?,
-      mobileNumber: json['mobile_number'] as String?,
-      email: json['email'] as String?,
-      passwordHash: json['password_hash'] as String?,
-      createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'])
-          : null,
-      address: json['address'] as String?,
-      state: json['state'] as String?,
-      pincode: json['pincode'] as String?,
+      customerId: (json['customer_id'] as num?)?.toInt() ?? 0,
+      fullName: (json['full_name'] ?? '').toString(),
+      mobileNumber: (json['mobile_number'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      address: json['address']?.toString(),
+      state: json['state']?.toString(),
+      pincode: json['pincode']?.toString(),
+      passwordHash: json['password_hash']?.toString(),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -38,11 +41,11 @@ class Customer {
   Map<String, dynamic> toJson() {
     return {
       'customer_id': customerId,
-      'customer_name': customerName,
+      'full_name': fullName,
       'mobile_number': mobileNumber,
       'email': email,
       'password_hash': passwordHash,
-      'created_at': createdAt?.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
       'address': address,
       'state': state,
       'pincode': pincode,
@@ -52,7 +55,7 @@ class Customer {
   /// ---- COPY WITH ----
   Customer copyWith({
     int? customerId,
-    String? customerName,
+    String? fullName,
     String? mobileNumber,
     String? email,
     String? passwordHash,
@@ -63,7 +66,7 @@ class Customer {
   }) {
     return Customer(
       customerId: customerId ?? this.customerId,
-      customerName: customerName ?? this.customerName,
+      fullName: fullName ?? this.fullName,
       mobileNumber: mobileNumber ?? this.mobileNumber,
       email: email ?? this.email,
       passwordHash: passwordHash ?? this.passwordHash,

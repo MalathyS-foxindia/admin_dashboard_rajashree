@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:admin_dashboard_rajashree/models/order_model.dart';
+import 'package:admin_dashboard_rajashree/models/products_model.dart';
 
 class ExcelService {
   // Static method to allow direct call without creating an instance
@@ -35,7 +36,7 @@ static Future<bool> exportToExcel(List<Order> selectedOrders) async {
 
       sheetObject.appendRow([
         TextCellValue(order.orderId.toString()),
-        TextCellValue(customer?.customerName ?? ''),
+        TextCellValue(customer?.fullName ?? ''),
         TextCellValue(customer?.mobileNumber ?? ''),
         TextCellValue(customer?.email ?? ''),
         TextCellValue(customer?.address ?? ''),
@@ -112,4 +113,59 @@ static Future<bool> exportToExcel(List<Order> selectedOrders) async {
     return false;
   }
   }
+static Future<bool> exportProductsToExcel(List<Product> products) async {
+  try {
+    final excel = Excel.createExcel();
+    final sheet = excel['Products'];
+
+    sheet.appendRow([
+      TextCellValue('Product Name'),
+      TextCellValue('Product SKU'),
+      TextCellValue('Category'),
+      TextCellValue('Variant Name'),
+      TextCellValue('Variant SKU'),
+      TextCellValue('Regular Price'),
+      TextCellValue('Sale Price'),
+      TextCellValue('Weight'),
+      TextCellValue('Stock'),
+      TextCellValue('Variant Active'),
+      TextCellValue('Product Active'),
+    ]);
+
+    for (final product in products) {
+      if (product.variants != null && product.variants!.isNotEmpty) {
+        for (final variant in product.variants!) {
+          sheet.appendRow([
+            TextCellValue(product.name ?? ''),
+            TextCellValue(product.sku ?? ''),
+            TextCellValue(product.category ?? ''),
+            TextCellValue(variant.name ?? ''),
+            TextCellValue(variant.sku ?? ''),
+            TextCellValue(variant.regularPrice?.toString() ?? ''),
+            TextCellValue(variant.salePrice?.toString() ?? ''),
+            TextCellValue(variant.weight?.toString() ?? ''),
+            TextCellValue(variant.stock?.toString() ?? ''),
+            TextCellValue((variant.isActive ?? false) ? '✅' : '❌'),
+            TextCellValue((product.isActive ?? false) ? '✅' : '❌'),
+          ]);
+        }
+      } 
+    }
+
+    final bytes = excel.save();
+    if (bytes != null) {
+      await FileSaver.instance.saveFile(
+        name: 'products_export.xlsx',
+        bytes: Uint8List.fromList(bytes),
+        mimeType: MimeType.microsoftExcel,
+      );
+      return true;
+    }
+
+    return false;
+  } catch (e) {
+    debugPrint("Error exporting to Excel: $e");
+    return false;
+  }
+}
 }

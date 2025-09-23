@@ -5,7 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Providers
-import 'package:admin_dashboard_rajshree/providers/combo_provider.dart';
+import 'package:admin_dashboard_rajashree/providers/combo_provider.dart';
 import 'package:admin_dashboard_rajashree/providers/customer_provider.dart';
 import 'package:admin_dashboard_rajashree/providers/purchase_provider.dart';
 import 'package:admin_dashboard_rajashree/providers/shipment_provider.dart';
