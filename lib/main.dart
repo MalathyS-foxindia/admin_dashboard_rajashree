@@ -20,13 +20,16 @@ import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/reset_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
 
+const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
  
 
   await Supabase.initialize(
-    url: String.fromEnvironment('SUPABASE_URL')!,
-    anonKey: String.fromEnvironment('SUPABASE_ANON_KEY')!,
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
 
   runApp(const MyApp());
