@@ -4,7 +4,7 @@ import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart'; // Import the forgot password screen
-
+import "../models/Env.dart";
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -32,9 +32,10 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
 
+     final supabaseUrl = Env.supabaseUrl;
+  final anonKey = Env.anonKey;
+    
       final response = await http.get(
         Uri.parse(
             '$supabaseUrl/rest/v1/users?email=eq.$email&select=email,password,role'),
@@ -250,8 +251,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
+      final supabaseUrl = Env.supabaseUrl!;
+      final anonKey = Env.anonKey!;
 
       final response = await http.get(
         Uri.parse(

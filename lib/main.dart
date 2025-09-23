@@ -19,14 +19,17 @@ import 'package:admin_dashboard_rajashree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/reset_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
+import 'package:admin_dashboard_rajashree/models/Env.dart';
+const String supabaseUrl = Env.supabaseUrl;
+const String supabaseAnonKey = Env.anonKey;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: 'assets/.env'); // Load env vars
+ 
 
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
 
   runApp(const MyApp());

@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/queries_model.dart';
-
+import 'package:admin_dashboard_rajashree/models/Env.dart';
 class QueriesProvider with ChangeNotifier {
-  final String _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
-  final String _anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  final String _supabaseUrl = Env.supabaseUrl?? '';
+  final String _anonKey = Env.anonKey?? '';
 
   List<QueryModel> _queries = [];
   List<QueryModel> get queries => _queries;
