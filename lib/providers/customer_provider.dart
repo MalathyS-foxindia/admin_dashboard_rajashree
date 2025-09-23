@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/customer_model.dart';
-
+import 'package:admin_dashboard_rajashree/models/Env.dart';
 class CustomerProvider with ChangeNotifier {
-  final String _supabaseUrl = String.fromEnvironment('SUPABASE_URL') ?? '';
-  final String _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY') ?? '';
+  final String _supabaseUrl = Env.supabaseUrl?? '';
+  final String _anonKey = Env.anonKey?? '';
 
   List<Customer> _customers = [];
   List<Customer> get customers => _customers;

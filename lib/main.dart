@@ -19,9 +19,9 @@ import 'package:admin_dashboard_rajashree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/reset_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
-
-const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+import 'package:admin_dashboard_rajashree/models/Env.dart';
+const String supabaseUrl = Env.supabaseUrl;
+const String supabaseAnonKey = Env.anonKey;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

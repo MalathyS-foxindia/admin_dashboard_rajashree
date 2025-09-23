@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-
+import 'package:admin_dashboard_rajashree/models/Env.dart';
 import '../models/purchase_model.dart';
 
 class PurchaseProvider with ChangeNotifier {
-  final String _supabaseUrl = String.fromEnvironment('SUPABASE_URL') ?? '';
-  final String _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY') ?? '';
+  final String _supabaseUrl = Env.supabaseUrl?? '';
+  final String _anonKey = Env.anonKey?? '';
 
   List<Purchase> _purchases = [];
   List<Purchase> get purchases => _purchases;

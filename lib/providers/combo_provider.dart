@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/combo_model.dart';
-
+import 'package:admin_dashboard_rajashree/models/Env.dart';
 class ComboProvider extends ChangeNotifier {
   List<Combo> _combos = [];
   bool _isLoading = false;
@@ -24,12 +24,12 @@ class ComboProvider extends ChangeNotifier {
   int get totalPages => _totalPages;
   bool get hasMore => _hasMore;
 
-  final String baseUrl = String.fromEnvironment('SUPABASE_URL');
-  final String? apiKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  final String baseUrl = Env.supabaseUrl;
+  final String? apiKey = Env.anonKey;
 
   Map<String, String> get _headers => {
         "Content-Type": "application/json",
-        "Authorization": 'Bearer ${String.fromEnvironment('SUPABASE_ANON_KEY')}' ?? "",
+        "Authorization": 'Bearer ${Env.anonKey}' ?? "",
       };
 
   /// ---------- FETCH ----------
@@ -166,8 +166,8 @@ Future<void> toggleStatus(int comboId, bool isActive) async {
       url,
       headers: {
         "Content-Type": "application/json",
-        "apikey": String.fromEnvironment('SUPABASE_SERVICE_ROLE') ?? "",
-        "Authorization": 'Bearer ${String.fromEnvironment('SUPABASE_SERVICE_ROLE') ?? ""}',
+        "apikey": Env.serviceRole ?? "",
+        "Authorization": 'Bearer ${Env.serviceRole ?? ""}',
          "Prefer": "return=representation",
       },
       body: jsonEncode({"is_active": isActive}),

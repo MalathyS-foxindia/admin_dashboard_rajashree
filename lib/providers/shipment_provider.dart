@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
 import '../models/shipment.dart';
-
+import 'package:admin_dashboard_rajashree/models/Env.dart';
 class ShipmentProvider extends ChangeNotifier {
   List<Shipment> _shipments = [];
   bool _isLoading = false;
@@ -24,8 +24,8 @@ class ShipmentProvider extends ChangeNotifier {
 
       if (kDebugMode) print('⏳ Fetching shipments from API...');
 
-      final supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-      final supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+      final supabaseUrl = Env.supabaseUrl;
+      final supabaseAnonKey = Env.anonKey;
 
       if (supabaseUrl == null || supabaseAnonKey == null) {
         throw Exception("Environment variables not found.");
@@ -65,7 +65,7 @@ class ShipmentProvider extends ChangeNotifier {
 
 
   Future<void> updateTrackingNumber(String orderId, String newTracking, String provider,bool isinline) async {
-    var apiUrl ="${String.fromEnvironment('SUPABASE_URL')}/functions/v1/updateshipmenttracking?order_id=$orderId" ;
+    var apiUrl ="${Env.supabaseUrl}/functions/v1/updateshipmenttracking?order_id=$orderId" ;
     try {
       if(provider=="India Post")
       {
@@ -85,7 +85,7 @@ class ShipmentProvider extends ChangeNotifier {
         ),
         headers: {
          
-          "Authorization": "Bearer ${String.fromEnvironment('SUPABASE_ANON_KEY')!}",
+          "Authorization": "Bearer ${Env.anonKey!}",
           "Content-Type": "application/json",
         },
         body: jsonEncode({"tracking_number": newTracking, "shipping_provider": provider}),

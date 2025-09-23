@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:admin_dashboard_rajashree/models/Env.dart';
 import '../models/products_model.dart';
 
 class ProductProvider with ChangeNotifier {
-  final String _supabaseUrl = String.fromEnvironment('SUPABASE_URL') ?? '';
-  final String _anonKey = String.fromEnvironment('SUPABASE_ANON_KEY') ?? '';
+  final String _supabaseUrl = Env.supabaseUrl?? '';
+  final String _anonKey = Env.anonKey?? '';
 
   ProductProvider() {
     if (_supabaseUrl.isEmpty || _anonKey.isEmpty) {
