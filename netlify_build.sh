@@ -16,6 +16,7 @@ flutter doctor
 
 echo "Flutter Clean..."
 flutter clean
+rm -rf build/web
 
 echo "📥 Fetching dependencies..."
 flutter pub get

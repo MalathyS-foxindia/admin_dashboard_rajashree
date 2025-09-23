@@ -7,10 +7,12 @@ command = "bash ./netlify_build.sh"
 # Ensure Flutter is available
 FLUTTER_VERSION = "3.24.0" # change to your Flutter version
 NODE_VERSION = "18"
+SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_ANON_KEY"
 
 [[redirects]]
 from = "/*"
 to = "/index.html"
 status = 200
+
 
 
