@@ -8,7 +8,6 @@ class Customer {
   final String email;
   final String? address;
   final String? state; // from public.state enum
-  final String? pinCode;
   final DateTime createdAt;
   final String? pincode;
   final String? passwordHash;
