@@ -196,6 +196,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   Text("Customer ID: ${customer.customerId}"),
                   Text("Mobile: ${customer.mobileNumber}"),
                   Text("Email: ${customer.email}"),
+
+                  Text("Address: ${customer.address}, ${customer.state}, ${customer.pinCode}"),
+
                 ],
                 Text(
                     "Shipping Address : ${order.name} , ${order.shippingAddress}, ${order.shippingState}, ${order.contactNumber}"),
@@ -420,7 +423,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                       onTap: () => _showOrderDetails(context, order),
                                     ),
                                   ),
+
                                   DataCell(Text(order.customer?.fullName ?? "N/A")),
+
                                   DataCell(Text(order.customer?.mobileNumber ?? "N/A")),
                                   DataCell(Text(
                                       "₹${order.totalAmount.toStringAsFixed(2)}")),

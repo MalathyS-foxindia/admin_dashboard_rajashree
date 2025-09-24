@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-
+import 'package:admin_dashboard_rajashree/models/Env.dart';
 class ResetPasswordScreen extends StatefulWidget {
   final String? email;
   const ResetPasswordScreen({super.key, this.email});
@@ -37,8 +37,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _loading = true);
 
     try {
-      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
+      final supabaseUrl = Env.supabaseUrl!;
+      final anonKey = Env.anonKey!;
 
       final response = await http.patch(
         Uri.parse('$supabaseUrl/rest/v1/users?email=eq.${widget.email}'),
@@ -109,7 +109,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         ),
                         child: Column(
                           children: [
-                            Image.asset('images/logo.png',
+                            Image.asset('assets/images/logo.png',
                                 height: 56, width: 56, fit: BoxFit.contain),
                             const SizedBox(height: 10),
                             Text(

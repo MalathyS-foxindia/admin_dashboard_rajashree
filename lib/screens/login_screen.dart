@@ -4,7 +4,7 @@ import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart'; // Import the forgot password screen
-
+import "../models/Env.dart";
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -32,9 +32,10 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
 
+     final supabaseUrl = Env.supabaseUrl;
+  final anonKey = Env.anonKey;
+    
       final response = await http.get(
         Uri.parse(
             '$supabaseUrl/rest/v1/users?email=eq.$email&select=email,password,role'),
@@ -81,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // Background Image
           Positioned.fill(
             child: Image.asset(
-              'images/login_bg3.jpg', // ✅ You need to add this image to your assets folder
+              'assets/images/login_bg4.png', // ✅ You need to add this image to your assets folder
               fit: BoxFit.cover,
             ),
           ),
@@ -125,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Image.asset('images/logo.png',
+                            Image.asset('assets/images/logo.png',
                                 height: 56, width: 56, fit: BoxFit.contain),
                             const SizedBox(height: 10),
                             Text('Rajashree Fashion Admin',
@@ -250,8 +251,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
-      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
+      final supabaseUrl = Env.supabaseUrl!;
+      final anonKey = Env.anonKey!;
 
       final response = await http.get(
         Uri.parse(

@@ -1,4 +1,5 @@
 
+import 'package:admin_dashboard_rajashree/providers/queries_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -18,14 +19,17 @@ import 'package:admin_dashboard_rajashree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/reset_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
+import 'package:admin_dashboard_rajashree/models/Env.dart';
+const String supabaseUrl = Env.supabaseUrl;
+const String supabaseAnonKey = Env.anonKey;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: 'assets/.env'); // Load env vars
+ 
 
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
   );
 
   runApp(const MyApp());
@@ -48,6 +52,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider( create: (_) => VendorProvider()),
         ChangeNotifierProvider(create: (_) => ComboProvider()),
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
+        ChangeNotifierProvider(create: (_) => QueriesProvider()),
 
       ],
       child: MaterialApp(

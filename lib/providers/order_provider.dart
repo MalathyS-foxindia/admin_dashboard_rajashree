@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/order_model.dart';
+import '../models/Env.dart';
 import '../models/order_item_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/logger.dart';
@@ -41,7 +42,7 @@ late Logger logger;
     );
 
     final response = await http.get(uri, headers: {
-      'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}',
+      'Authorization': 'Bearer ${Env.anonKey}',
     });
 
     if (response.statusCode == 200) {
@@ -83,7 +84,7 @@ late Logger logger;
     );
 
     final headers = {
-      'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}'
+      'Authorization': 'Bearer ${Env.anonKey}'
     };
 
     try {
@@ -106,11 +107,10 @@ late Logger logger;
     try {
       print('Fetching JSON for order: $orderId');
       final headers = {
-        'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}'
+        'Authorization': 'Bearer ${Env.anonKey}'
       };
       final response = await http.get(
-        Uri.parse(
-            'https://gvsorguincvinuiqtooo.supabase.co/functions/v1/generateinvoice?order_id=$orderId'),
+        Uri.parse('${Env.supabaseUrl}/functions/v1/generateinvoice?order_id=$orderId'),
         headers: headers,
       );
 

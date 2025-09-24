@@ -32,6 +32,9 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
++# Ignore all build output except web
++/build/*
++!/build/web/
 
 # Symbolication related
 app.*.symbols

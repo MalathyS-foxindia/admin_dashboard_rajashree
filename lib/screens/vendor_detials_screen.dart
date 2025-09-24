@@ -57,7 +57,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
                   // 🔘 Toggle between Manual / Invoice Payment
                   Row(
                     children: [
-                      Expanded(
+                      /*Expanded(
                         child: RadioListTile<bool>(
                           value: false,
                           groupValue: useInvoice,
@@ -72,7 +72,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
                             });
                           },
                         ),
-                      ),
+                      ),*/
                       Expanded(
                         child: RadioListTile<bool>(
                           value: true,

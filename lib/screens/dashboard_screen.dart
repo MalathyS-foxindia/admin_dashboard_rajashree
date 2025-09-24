@@ -38,7 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final SupabaseService _supabaseService = SupabaseService();
   DateTime _selectedDate = DateTime.now(); // For daily stats
 
-  bool _isMenuCollapsed = false; // ✅ Track collapsed state
+  bool _isMenuCollapsed = false;
 
   bool get isAdmin => widget.role.toLowerCase() == "admin";
   bool get isManager => widget.role.toLowerCase() == "manager";
@@ -67,8 +67,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 3,
         title: Row(
           children: [
-            Image.asset("images/logo.png", height: 32),
-            const SizedBox(width: 12),
+              Image.asset('assets/images/logo.png', height: 32),
+              const SizedBox(width: 12),
             const Text(
               "Rajashree Fashions",
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
@@ -111,75 +111,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSideMenu() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: _isMenuCollapsed ? 70:220,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF4A90E2), Color(0xFF7E57C2)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isMenuCollapsed = false),
+      onExit: (_) => setState(() => _isMenuCollapsed = true),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: _isMenuCollapsed ? 70 : 235,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF4A90E2), Color(0xFF7E57C2)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
         ),
-      ),
-
-      child: Column(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 18), // ⬅️ more top-bottom padding
           children: [
-    Align(
-    alignment: Alignment.topRight,
-      child: IconButton(
-        icon: Icon(
-          _isMenuCollapsed ? Icons.arrow_forward_ios : Icons.arrow_back_ios,
-          color: Colors.white,
-          size: 18,
+            if (isAdmin)
+              _buildMenuItem(DashboardMenu.dashboard, Icons.dashboard, "Dashboard", allowed: true),
+            _buildMenuItem(DashboardMenu.orders, Icons.shopping_cart, "Orders", allowed: isAdmin || isManager),
+            _buildMenuItem(DashboardMenu.products, Icons.store, "Products", allowed: isAdmin || isManager),
+            _buildMenuItem(DashboardMenu.combos, Icons.all_inbox, "Combos", allowed: isAdmin || isManager),
+            _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase", allowed: isAdmin),
+            _buildMenuItem(DashboardMenu.trackship, Icons.local_shipping, "Trackship", allowed: true),
+            _buildMenuItem(DashboardMenu.vendors, Icons.store_mall_directory, "Vendors", allowed: isAdmin),
+            _buildMenuItem(DashboardMenu.customers, Icons.person, "Customers", allowed: isAdmin),
+            _buildMenuItem(DashboardMenu.queries, Icons.live_help_sharp, "Queries", allowed: isAdmin || isManager),
+            _buildMenuItem(DashboardMenu.returns, Icons.assignment_returned, "Returns", allowed: isAdmin || isManager),
+          ],
         ),
-        onPressed: () {
-          setState(() => _isMenuCollapsed = !_isMenuCollapsed);
-        },
       ),
-    ),
-    Expanded(
-    child: ListView(
-    children: [
-    if (isAdmin)
-    _buildMenuItem(DashboardMenu.dashboard, Icons.dashboard, "Dashboard", allowed: true),
-    _buildMenuItem(DashboardMenu.orders, Icons.shopping_cart, "Orders", allowed: isAdmin || isManager),
-    _buildMenuItem(DashboardMenu.products, Icons.store, "Products", allowed: isAdmin || isManager),
-    _buildMenuItem(DashboardMenu.combos, Icons.all_inbox, "Combos", allowed: isAdmin || isManager),
-    _buildMenuItem(DashboardMenu.purchases, Icons.receipt, "Purchase", allowed: isAdmin),
-    _buildMenuItem(DashboardMenu.trackship, Icons.local_shipping, "Trackship", allowed: true),
-    _buildMenuItem(DashboardMenu.vendors, Icons.store_mall_directory, "Vendors", allowed: isAdmin),
-    _buildMenuItem(DashboardMenu.customers, Icons.person, "Customers", allowed: isAdmin),
-    _buildMenuItem(DashboardMenu.queries, Icons.live_help_sharp, "Queries", allowed: isAdmin || isManager),
-    _buildMenuItem(DashboardMenu.returns, Icons.assignment_returned, "Returns", allowed: isAdmin || isManager),
-    ],
-    ),
-    ),
-    ],
-    ),
     );
   }
 
   Widget _buildMenuItem(DashboardMenu menu, IconData icon, String title, {required bool allowed}) {
     final isSelected = selectedMenu == menu;
     if (!allowed) return const SizedBox.shrink();
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.white),
-        title: _isMenuCollapsed
-            ? null
-            : Text(
-          title,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      child: InkWell(
+        onTap: () => setState(() => selectedMenu = menu),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 7), // ⬅️ taller items
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 24), // ⬅️ slightly bigger icon
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, anim) => SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(-0.3, 0),
+                      end: Offset.zero,
+                    ).animate(anim),
+                    child: FadeTransition(opacity: anim, child: child),
+                  ),
+                  child: _isMenuCollapsed
+                      ? const SizedBox.shrink()
+                      : Padding(
+                    key: ValueKey(title),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14, // ⬅️ bigger font size
+                        color: Colors.white,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        onTap: () => setState(() => selectedMenu = menu),
       ),
     );
   }
