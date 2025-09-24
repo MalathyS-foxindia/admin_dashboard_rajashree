@@ -10,6 +10,8 @@ class Customer {
   final String? state; // from public.state enum
   final String? pinCode;
   final DateTime createdAt;
+  final String? pincode;
+  final String? passwordHash;
 
   Customer({
     required this.customerId,
@@ -19,9 +21,13 @@ class Customer {
     required this.createdAt,
     this.address,
     this.state,
-    this.pinCode
+
+    this.pincode,
+    this.passwordHash,
+
   });
 
+  /// ---- FROM JSON ----
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
       customerId: (json['customer_id'] as num?)?.toInt() ?? 0,
@@ -30,7 +36,49 @@ class Customer {
       email: (json['email'] ?? '').toString(),
       address: json['address']?.toString(),
       state: json['state']?.toString(),
+      pincode: json['pincode']?.toString(),
+      passwordHash: json['password_hash']?.toString(),
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+    );
+  }
+
+  /// ---- TO JSON ----
+  Map<String, dynamic> toJson() {
+    return {
+      'customer_id': customerId,
+      'full_name': fullName,
+      'mobile_number': mobileNumber,
+      'email': email,
+      'password_hash': passwordHash,
+      'created_at': createdAt.toIso8601String(),
+      'address': address,
+      'state': state,
+      'pincode': pincode,
+    };
+  }
+
+  /// ---- COPY WITH ----
+  Customer copyWith({
+    int? customerId,
+    String? fullName,
+    String? mobileNumber,
+    String? email,
+    String? passwordHash,
+    DateTime? createdAt,
+    String? address,
+    String? state,
+    String? pincode,
+  }) {
+    return Customer(
+      customerId: customerId ?? this.customerId,
+      fullName: fullName ?? this.fullName,
+      mobileNumber: mobileNumber ?? this.mobileNumber,
+      email: email ?? this.email,
+      passwordHash: passwordHash ?? this.passwordHash,
+      createdAt: createdAt ?? this.createdAt,
+      address: address ?? this.address,
+      state: state ?? this.state,
+      pincode: pincode ?? this.pincode,
     );
   }
 }

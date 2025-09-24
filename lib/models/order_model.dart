@@ -15,6 +15,12 @@ class Order {
   final String paymentMethod;
   final String paymentTransactionId;
   final String orderNote;
+  final String name;
+  final String shippingAddress;
+  final String shippingState;
+  final String shippingPincode;
+  final String contactNumber;
+  
 
   final String orderDate;
   final String orderStatus;
@@ -40,38 +46,47 @@ class Order {
     this.invoiceUrl,
     this.shipmentStatus,
     this.customer,
+    required this.name,
+    required this.shippingAddress,
+    required this.shippingState,
+    required this.contactNumber,
+    required this.shippingPincode
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
-    // Extract shipment status (from array if present)
-    String? shipmentStatus;
-    if (json['shipment_tracking'] != null &&
-        (json['shipment_tracking'] as List).isNotEmpty) {
-      shipmentStatus = json['shipment_tracking'][0]['shipping_status'];
-    }
-
-    return Order(
-      orderDate: DateTime.parse(json['created_at'])
-          .toLocal()
-          .toString()
-          .split(' ')[0],
-      orderId: json['order_id'].toString(),
-      customerId: json['customer_id']?.toString(),
-      totalAmount: (json['total_amount'] as num).toDouble(),
-      source: json['source'] ?? '',
-      shippingAmount: (json['shipping_amount'] as num).toDouble(),
-      paymentMethod: json['payment_method'] ?? '',
-      paymentTransactionId: json['payment_transaction_id']?.toString() ?? '',
-      orderNote: json['order_note'] ?? '',
-      orderStatus: json['order_status'] ?? '',
-      invoiceUrl: json['invoice_url'],
-      shipmentStatus: shipmentStatus,
-      // ✅ parse embedded customer if present
-      customer: json['customers'] != null
-          ? Customer.fromJson(json['customers'])
-          : null,
-    );
+  String? shipmentStatus;
+  if (json['shipment_tracking'] != null &&
+      (json['shipment_tracking'] as List).isNotEmpty) {
+    shipmentStatus = json['shipment_tracking'][0]['shipping_status']?.toString();
   }
+
+  return Order(
+    orderDate: DateTime.parse(json['created_at'])
+        .toLocal()
+        .toString()
+        .split(' ')[0],
+    orderId: json['order_id'].toString(),
+    customerId: json['customer_id']?.toString(),
+    totalAmount: (json['total_amount'] as num).toDouble(),
+    source: json['source']?.toString() ?? '',
+    shippingAmount: (json['shipping_amount'] as num).toDouble(),
+    paymentMethod: json['payment_method']?.toString() ?? '',
+    paymentTransactionId: json['payment_transaction_id']?.toString() ?? '',
+    orderNote: json['order_note']?.toString() ?? '',
+    orderStatus: json['order_status']?.toString() ?? '',
+    invoiceUrl: json['invoice_url']?.toString(),
+    name: json['name']?.toString() ?? '',
+    shippingAddress: json['shipping_address']?.toString() ?? '',
+    shippingState: json['shipping_state']?.toString() ?? '',
+    shippingPincode: json['shipping_pincode']?.toString() ?? '',
+    contactNumber: json['contact_number']?.toString() ?? '',
+    shipmentStatus: shipmentStatus,
+    customer: json['customers'] != null
+        ? Customer.fromJson(json['customers'])
+        : null,
+  );
+}
+
 
   Map<String, dynamic> toJson() {
     return {
@@ -86,7 +101,14 @@ class Order {
       'order_status': orderStatus,
       'invoice_url': invoiceUrl,
       'shipment_status': shipmentStatus,
-      'customers': customer,
+
+      'name' : name,
+      'shipping_address' :shippingAddress,
+      'shipping_state' : shippingState,
+      'shipping_pincode' : shippingPincode,
+      'contact_number' : contactNumber,
+      'customers': customer?.toJson(),
+
     };
   }
 }
