@@ -7,14 +7,16 @@ import 'package:barcode/barcode.dart';
 class InvoiceService {
   static Future<Map<String, dynamic>> generateInvoiceFromJson(Map<String, dynamic> jsonData) async {
     // Extract data
-    String orderId = jsonData['order_id'] ?? '';
-    String orderDate = jsonData['order_date'] ?? '';
-    String customerName = jsonData['customer_name'] ?? '';
-    String mobileNumber = jsonData['mobile_number'] ?? '';
-    String shippingAddress = jsonData['shipping_address'] ?? '';
-    String shippingState = jsonData['shipping_state'] ?? '';
-    double shippingAmount = (jsonData['shipping_amount'] ?? 0).toDouble();
-    List<dynamic> items = jsonData['items'] ?? [];
+   String orderId = (jsonData['order_id'] ?? '').toString();
+String orderDate = (jsonData['order_date'] ?? '').toString();
+String customerName = (jsonData['customer_name'] ?? '').toString();
+String mobileNumber = (jsonData['mobile_number'] ?? '').toString();
+String shippingAddress = (jsonData['shipping_address'] ?? '').toString()
+    .replaceAll("\\ n", "\n");   // handles "backslash + space + n"
+
+String shippingState = (jsonData['shipping_state'] ?? '').toString();
+double shippingAmount = (jsonData['shipping_amount'] ?? 0).toDouble();
+List<dynamic> items = jsonData['items'] ?? [];
 
     // Font
     final ttf = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
@@ -31,6 +33,10 @@ class InvoiceService {
     double cgst = subTotal * (cgstRate / 100);
     double sgst = subTotal * (sgstRate / 100);
     double grandTotal = subTotal + cgst + sgst + shippingAmount;
+
+// Load logo image from assets
+final logoBytes = await rootBundle.load("assets/images/logo.png");
+final logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
 
     // Barcode
     final barcode = Barcode.code128();
@@ -50,7 +56,7 @@ class InvoiceService {
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  crossAxisAlignment:   pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text("From", style: pw.TextStyle(font: customFont, fontSize: 12, fontWeight: pw.FontWeight.bold)),
                     pw.Text("Rajashree Fashion", style: pw.TextStyle(font: customFont)),
@@ -60,39 +66,51 @@ class InvoiceService {
                     pw.Text("GSTIN: 33GFWPS8459J1Z8", style: pw.TextStyle(font: customFont)),
                   ],
                 ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.SvgImage(svg: svg, height: 60),
-                    pw.SizedBox(height: 8),
-                    pw.Text("Order Date: $orderDate", style: pw.TextStyle(font: customFont, fontSize: 10)),
-                    pw.Text("Invoice No: $orderId", style: pw.TextStyle(font: customFont, fontSize: 10)),
-                  ],
-                ),
+                pw.Image(logoImage, width: 80), // your logo on the right
+                
               ],
             ),
 
             pw.SizedBox(height: 20),
 
-            // Shipping Address Highlighted
-            pw.Container(
-              padding: const pw.EdgeInsets.all(10),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(width: 1, color: PdfColors.black),
-                borderRadius: pw.BorderRadius.circular(4),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text("Shipping Address", style: pw.TextStyle(font: customFont, fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                  pw.SizedBox(height: 5),
-                  pw.Text("$customerName", style: pw.TextStyle(font: customFont, fontSize: 12)),
-                  pw.Text("$shippingAddress", style: pw.TextStyle(font: customFont, fontSize: 12)),
-                  pw.Text("State: $shippingState", style: pw.TextStyle(font: customFont, fontSize: 12)),
-                  pw.Text("Contact No: $mobileNumber", style: pw.TextStyle(font: customFont, fontSize: 12)),
-                ],
-              ),
-            ),
+            // Shipping Address Highlighted (with barcode/date on the right)
+pw.Container(
+  padding: const pw.EdgeInsets.all(10),
+  decoration: pw.BoxDecoration(
+    border: pw.Border.all(width: 1, color: PdfColors.black),
+    borderRadius: pw.BorderRadius.circular(4),
+  ),
+  child: pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+    children: [
+      // Left: Shipping address
+      pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text("Shipping Address", style: pw.TextStyle(font: customFont, fontSize: 14, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 5),
+          pw.Text("$customerName", style: pw.TextStyle(font: customFont, fontSize: 12)),
+          pw.Text("$shippingAddress", style: pw.TextStyle(font: customFont, fontSize: 12)),
+          pw.Text("State: $shippingState", style: pw.TextStyle(font: customFont, fontSize: 12)),
+          pw.Text("Contact No: $mobileNumber", style: pw.TextStyle(font: customFont, fontSize: 12)),
+        ],
+      ),
+
+      // Right: Barcode + Order details
+      pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
+        children: [
+          pw.SvgImage(svg: svg, height: 60),
+          pw.SizedBox(height: 8),
+          pw.Text("Order Date: $orderDate", style: pw.TextStyle(font: customFont, fontSize: 10)),
+          pw.Text("Invoice No: $orderId", style: pw.TextStyle(font: customFont, fontSize: 10)),
+        ],
+      ),
+    ],
+  ),
+),
+
 
             pw.SizedBox(height: 20),
 

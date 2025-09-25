@@ -44,7 +44,7 @@ class ExcelService {
           TextCellValue(customer?.email ?? ''),
           TextCellValue(customer?.address ?? ''),
           TextCellValue(customer?.state ?? ''),
-          TextCellValue(customer?.pinCode ?? ''),
+          TextCellValue(customer?.pincode ?? ''),
           DoubleCellValue(order.totalAmount),
           TextCellValue(order.paymentMethod),
           TextCellValue(order.orderDate.toString()),
