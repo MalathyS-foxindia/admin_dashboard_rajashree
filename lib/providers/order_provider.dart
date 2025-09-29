@@ -8,6 +8,7 @@ import '../models/Env.dart';
 import '../models/order_item_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/logger.dart';
+import 'package:intl/intl.dart';
 
 class OrderProvider with ChangeNotifier {
   List<Order> _orders = [];
@@ -139,8 +140,15 @@ late Logger logger;
             "Invalid fileData format — must be Base64 string or Uint8List");
       }
 
-      final filePath =
-          'Invoices_${invoiceData['filedate']}/${invoiceData['fileName']}';
+      final fileDate = invoiceData['filedate'] is DateTime
+    ? invoiceData['filedate'] as DateTime
+    : DateTime.tryParse(invoiceData['filedate'].toString()) ?? DateTime.now();
+
+// Format folder as yyyy-MM-dd
+final folderName = DateFormat('yyyy-MM-dd').format(fileDate);
+
+final filePath = 'Invoices/$folderName/${invoiceData['fileName']}';
+
 
       final response = await supabase.storage
           .from('invoices')

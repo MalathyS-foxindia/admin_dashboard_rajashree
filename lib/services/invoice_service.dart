@@ -23,17 +23,25 @@ List<dynamic> items = jsonData['items'] ?? [];
     final customFont = pw.Font.ttf(ttf);
 
     // GST
-    double cgstRate = 1.5;
-    double sgstRate = 1.5;
+double cgstRate = 1.5;
+double sgstRate = 1.5;
+double igstRate = 3.0;
 
-    double subTotal = items.fold(0, (sum, item) {
-      return sum + ((item['price'] ?? 0) * (item['quantity'] ?? 0));
-    });
+double subTotal = items.fold(0.0, (sum, item) {
+  return sum + ((item['price'] ?? 0) * (item['quantity'] ?? 0));
+});
 
-    double cgst = subTotal * (cgstRate / 100);
-    double sgst = subTotal * (sgstRate / 100);
-    double grandTotal = subTotal + cgst + sgst + shippingAmount;
+double cgst = 0, sgst = 0, igst = 0;
 
+// Check state: Tamil Nadu -> CGST+SGST, Others -> IGST
+if (shippingState.trim().toLowerCase() == "tamil nadu") {
+  cgst = subTotal * (cgstRate / 100);
+  sgst = subTotal * (sgstRate / 100);
+} else {
+  igst = subTotal * (igstRate / 100);
+}
+
+double grandTotal = subTotal + cgst + sgst + igst + shippingAmount;
 // Load logo image from assets
 final logoBytes = await rootBundle.load("assets/images/logo.png");
 final logoImage = pw.MemoryImage(logoBytes.buffer.asUint8List());
@@ -115,43 +123,62 @@ pw.Container(
             pw.SizedBox(height: 20),
 
             // Products
-            pw.Text("Products purchased:", style: pw.TextStyle(font: customFont, fontWeight: pw.FontWeight.bold)),
-            pw.Table.fromTextArray(
-              headers: ["Product", "Qty", "Base Price (Excl. GST)"],
-              headerStyle: pw.TextStyle(font: customFont, fontWeight: pw.FontWeight.bold),
-              cellStyle: pw.TextStyle(font: customFont, fontSize: 10),
-              data: items.map((e) => [
-                e['variant_name'] ?? '',
-                e['quantity'].toString(),
-                "₹${(e['price'] ?? 0).toStringAsFixed(2)}",
-              ]).toList(),
-            ),
+pw.Text("Products purchased:", style: pw.TextStyle(font: customFont, fontWeight: pw.FontWeight.bold)),
+
+pw.Table.fromTextArray(
+  headers: ["Product", "Unit Price", "Qty", "Total"],
+  headerStyle: pw.TextStyle(font: customFont, fontWeight: pw.FontWeight.bold),
+  cellStyle: pw.TextStyle(font: customFont, fontSize: 10),
+  columnWidths: {
+    0: const pw.FlexColumnWidth(3), // Product column wider
+    1: const pw.FlexColumnWidth(2),
+    2: const pw.FlexColumnWidth(1),
+    3: const pw.FlexColumnWidth(2),
+  },
+  data: items.map((e) {
+    final double price = (e['price'] ?? 0).toDouble();
+    final int qty = (e['quantity'] ?? 0).toInt();
+    final double total = price * qty;
+
+    return [
+      e['variant_name'] ?? '',
+      "₹${price.toStringAsFixed(2)}",
+      qty.toString(),
+      "₹${total.toStringAsFixed(2)}",
+    ];
+  }).toList(),
+),
+
 
             pw.SizedBox(height: 20),
 
             // Totals Section (Right Aligned Box)
-            pw.Align(
-              alignment: pw.Alignment.centerRight,
-              child: pw.Container(
-                width: 220,
-                padding: const pw.EdgeInsets.all(8),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(width: 1, color: PdfColors.black),
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: [
-                    _summaryRow("Subtotal:", "₹${subTotal.toStringAsFixed(2)}", customFont),
-                    _summaryRow("CGST (${cgstRate.toStringAsFixed(1)}%):", "₹${cgst.toStringAsFixed(2)}", customFont),
-                    _summaryRow("SGST (${sgstRate.toStringAsFixed(1)}%):", "₹${sgst.toStringAsFixed(2)}", customFont),
-                    _summaryRow("Shipping:", "₹${shippingAmount.toStringAsFixed(2)}", customFont),
-                    pw.Divider(),
-                    _summaryRow("Total:", "₹${grandTotal.toStringAsFixed(2)}", customFont, bold: true),
-                  ],
-                ),
-              ),
-            ),
+pw.Align(
+  alignment: pw.Alignment.centerRight,
+  child: pw.Container(
+    width: 220,
+    padding: const pw.EdgeInsets.all(8),
+    decoration: pw.BoxDecoration(
+      border: pw.Border.all(width: 1, color: PdfColors.black),
+      borderRadius: pw.BorderRadius.circular(4),
+    ),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        _summaryRow("Subtotal:", "₹${subTotal.toStringAsFixed(2)}", customFont),
+        if (shippingState.trim().toLowerCase() == "tamil nadu") ...[
+          _summaryRow("CGST (${cgstRate.toStringAsFixed(1)}%):", "₹${cgst.toStringAsFixed(2)}", customFont),
+          _summaryRow("SGST (${sgstRate.toStringAsFixed(1)}%):", "₹${sgst.toStringAsFixed(2)}", customFont),
+        ] else ...[
+          _summaryRow("IGST (${igstRate.toStringAsFixed(1)}%):", "₹${igst.toStringAsFixed(2)}", customFont),
+        ],
+        _summaryRow("Shipping:", "₹${shippingAmount.toStringAsFixed(2)}", customFont),
+        pw.Divider(),
+        _summaryRow("Total:", "₹${grandTotal.toStringAsFixed(2)}", customFont, bold: true),
+      ],
+    ),
+  ),
+),
 
             pw.SizedBox(height: 20),
 
