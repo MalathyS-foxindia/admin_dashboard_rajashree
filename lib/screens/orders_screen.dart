@@ -23,9 +23,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
   int _pageSize = 10;
   final List<int> _pageSizeOptions = [10, 20, 50, 100];
 
+  /// 🔹 Define available filter categories
+  final Map<String, List<String>> _filterOptions = {
+    "Status": ["processing", "Completed", "failed"],
+    "Source": ["Website", "Whatsapp"],
+    "Date": [] // empty list, we use DatePicker instead of dropdown
+  };
+
   bool _isGenerating = false;
   bool _isExporting = false;
   bool _showShipmentPage = false;
+
+  String? _selectedFilterCategory;
+  String? _selectedFilterValue;
+  DateTime? _selectedFilterDate;
 
   DateTime _selectedDate = DateTime.now();
   List<Map<String, dynamic>> _skuSummary = [];
@@ -34,8 +45,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() =>
-        Provider.of<OrderProvider>(context, listen: false).fetchOrders());
+    Future.microtask(
+        () => Provider.of<OrderProvider>(context, listen: false).fetchOrders());
     _loadSkuSummary();
   }
 
@@ -43,7 +54,139 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final summary = await _supabaseService.fetchDailySkuSummary(_selectedDate);
     setState(() => _skuSummary = List<Map<String, dynamic>>.from(summary));
   }
+Future<void> _pickDate() async {
+final picked = await showDatePicker(
+context: context,
+initialDate: _selectedDate,
+firstDate: DateTime(2023, 1, 1),
+lastDate: DateTime.now(),
+);
+if (picked != null) {
+print("selected date: $picked");
+setState(() => _selectedDate = picked);
+await _loadSkuSummary();
+}
+}
 
+void _showSkuSummaryDialog() {
+showDialog(
+context: context,
+builder: (context) {
+return StatefulBuilder(
+builder: (context, setDialogState) {
+return AlertDialog(
+title: const Text("📦 Daily SKU Sales Summary"),
+content: SizedBox(
+width: 700,
+child: Column(
+mainAxisSize: MainAxisSize.min,
+children: [
+Row(
+children: [
+TextButton.icon(
+onPressed: () async {
+final picked = await showDatePicker(
+context: context,
+initialDate: _selectedDate,
+firstDate: DateTime(2020),
+lastDate: DateTime.now(),
+);
+if (picked != null) {
+setState(() => _selectedDate = picked);
+await _loadSkuSummary();
+// refresh dialog UI
+setDialogState(() {});
+}
+},
+icon: const Icon(Icons.calendar_today),
+label: Text("${_selectedDate.toLocal()}".split(' ')[0]),
+),
+const Spacer(),
+ElevatedButton.icon(
+onPressed: _skuSummary.isEmpty
+? null
+: () async {
+final success =
+await ExcelService.exportSkuSummaryToExcel(
+_skuSummary,
+_selectedDate,
+);
+if (mounted) {
+ScaffoldMessenger.of(context).showSnackBar(
+SnackBar(
+content: Text(success
+? 'SKU Summary exported!'
+: 'Failed to export.'),
+),
+);
+}
+},
+icon: const Icon(Icons.file_download),
+label: const Text("Export Excel"),
+),
+],
+),
+const SizedBox(height: 12),
+SizedBox(
+height: 400,
+child: _skuSummary.isEmpty
+? const Center(child: Text("No sales summary available"))
+: SingleChildScrollView(
+scrollDirection: Axis.vertical,
+child: SingleChildScrollView(
+scrollDirection: Axis.horizontal,
+child: DataTable(
+headingRowColor:
+WidgetStateProperty.resolveWith(
+(states) => Colors.grey[200]),
+columns: const [
+DataColumn(label: Text("SKU")),
+DataColumn(label: Text("Variant")),
+DataColumn(label: Text("Qty Sold")),
+DataColumn(label: Text("Current Stock")),
+],
+rows: _skuSummary.map((sku) {
+final currentStock = int.tryParse(sku['current_stock']?.toString() ?? '0') ?? 0;
+final totalQty = int.tryParse(sku['total_qty']?.toString() ?? '0') ?? 0;
+return DataRow(
+cells: [
+DataCell(
+Text((sku['sku'] ?? 'N/A').toString())),
+DataCell(Text(
+(sku['variant_name'] ?? 'N/A')
+.toString())),
+DataCell(Text(totalQty.toString())),
+DataCell(
+Text(
+currentStock.toString(),
+style: TextStyle(
+color: currentStock < totalQty ? Colors.red : Colors.black,
+fontWeight: currentStock < totalQty ? FontWeight.bold : FontWeight.normal,
+),
+),
+),
+],
+);
+}).toList(),
+),
+),
+),
+),
+],
+),
+),
+actions: [
+TextButton(
+onPressed: () => Navigator.pop(context),
+child: const Text("Close"),
+),
+],
+);
+},
+);
+},
+);
+}
   void filterOrders(String query) {
     setState(() {
       searchQuery = query.toLowerCase();
@@ -54,11 +197,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
   List<Order> _applyFilter(List<Order> all) {
     return all.where((order) {
       final customer = order.customer;
-      return (customer?.mobileNumber?.contains(searchQuery) ?? false) ||
-          (customer?.address?.toLowerCase().contains(searchQuery) ?? false) ||
-          (customer?.state?.toLowerCase().contains(searchQuery) ?? false) ||
-          order.source.toLowerCase().contains(searchQuery) ||
-          order.orderId.toLowerCase().contains(searchQuery);
+
+      final matchesSearch =
+          (customer?.mobileNumber?.contains(searchQuery) ?? false) ||
+              (customer?.address?.toLowerCase().contains(searchQuery) ?? false) ||
+              (customer?.state?.toLowerCase().contains(searchQuery) ?? false) ||
+              order.source.toLowerCase().contains(searchQuery) ||
+              order.orderId.toLowerCase().contains(searchQuery);
+
+      bool matchesFilter = true;
+
+      if (_selectedFilterCategory != null) {
+        switch (_selectedFilterCategory) {
+          case "Status":
+            matchesFilter = order.orderStatus == _selectedFilterValue;
+            break;
+          case "Source":
+            matchesFilter = order.source == _selectedFilterValue;
+            break;
+          case "Date":
+            if (_selectedFilterDate != null) {
+              matchesFilter = order.orderDate ==
+                  _selectedFilterDate!.toLocal().toString().split(' ')[0];
+            }
+            break;
+        }
+      }
+
+      return matchesSearch && matchesFilter;
     }).toList();
   }
 
@@ -72,7 +238,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Future<void> _exportOrdersToExcel() async {
     if (_selectedOrderIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one order to export')),
+        const SnackBar(
+            content: Text('Please select at least one order to export')),
       );
       return;
     }
@@ -80,18 +247,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
     setState(() => _isExporting = true);
 
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
-    final selectedOrders = orderProvider.orders.where(
-      (order) => _selectedOrderIds.contains(order.orderId),
-    ).toList();
+    final selectedOrders = orderProvider.orders
+        .where((order) => _selectedOrderIds.contains(order.orderId))
+        .toList();
 
     final success = await ExcelService.exportToExcel(selectedOrders);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success
-              ? 'Orders exported to Excel!'
-              : 'Failed to export orders.'),
+          content:
+              Text(success ? 'Orders exported to Excel!' : 'Failed to export orders.'),
         ),
       );
     }
@@ -118,14 +284,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
         allSuccess = false;
         continue;
       }
-
-      final invoiceData =
-          await InvoiceService.generateInvoiceFromJson(jsonData);
-
+      if(jsonData['order_status']!='failed')
+      {
+      final invoiceData = await InvoiceService.generateInvoiceFromJson(jsonData);
       final success =
           await orderProvider.uploadInvoiceToSupabaseStorage(invoiceData);
 
       if (!success) allSuccess = false;
+      }
     }
 
     setState(() => _isGenerating = false);
@@ -164,11 +330,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   Text("Customer ID: ${customer.customerId}"),
                   Text("Mobile: ${customer.mobileNumber}"),
                   Text("Email: ${customer.email}"),
-                  Text("Address: ${customer.address}, ${customer.state}, ${customer.pinCode}"),
                 ],
-                Text("Amount: ₹${order.totalAmount} (Shipping: ₹${order.shippingAmount})"),
+                Text(
+                    "Shipping Address : ${order.name} , ${order.shippingAddress}, ${order.shippingState}, ${order.contactNumber}"),
+                Text(
+                    "Amount: ₹${order.totalAmount} (Shipping: ₹${order.shippingAmount})"),
                 Text("Source: ${order.source}"),
-                Text("Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
+                Text(
+                    "Payment: ${order.paymentMethod} - ${order.paymentTransactionId}"),
                 if (order.orderNote.isNotEmpty) Text("Note: ${order.orderNote}"),
                 const Divider(),
                 const Text("Items", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -218,10 +387,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
-                    /// Top controls row
+                    /// 🔹 Top controls row
+                    const SizedBox(width: 12),
+ElevatedButton.icon(
+onPressed: _showSkuSummaryDialog,
+icon: const Icon(Icons.inventory),
+label: const Text("SKU Summary"),
+),
                     Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Row(
+                      child: Wrap(
+                        spacing: 16,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           SizedBox(
                             width: 300,
@@ -234,7 +412,80 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+
+                          // 🔹 Filter Dropdowns (Category + Value)
+                          DropdownButton<String>(
+                            hint: const Text("Choose Filter"),
+                            value: _selectedFilterCategory,
+                            items: _filterOptions.keys
+                                .map((cat) =>
+                                    DropdownMenuItem(value: cat, child: Text(cat)))
+                                .toList(),
+                            onChanged: (v) {
+                              setState(() {
+                                _selectedFilterCategory = v;
+                                _selectedFilterValue = null;
+                                _selectedFilterDate = null;
+                                _page = 0;
+                              });
+                            },
+                          ),
+
+                          if (_selectedFilterCategory != null)
+                            _selectedFilterCategory == "Date"
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.date_range),
+                                        label: Text(
+                                          _selectedFilterDate != null
+                                              ? "${_selectedFilterDate!.toLocal()}"
+                                                  .split(' ')[0]
+                                              : "Select Date",
+                                        ),
+                                        onPressed: () async {
+                                          final picked = await showDatePicker(
+                                            context: context,
+                                            initialDate:
+                                                _selectedFilterDate ?? DateTime.now(),
+                                            firstDate: DateTime(2020),
+                                            lastDate: DateTime.now(),
+                                          );
+                                          if (picked != null) {
+                                            setState(() {
+                                              _selectedFilterDate = picked;
+                                              _page = 0;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                      if (_selectedFilterDate != null)
+                                        IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            setState(() {
+                                              _selectedFilterDate = null;
+                                            });
+                                          },
+                                        ),
+                                    ],
+                                  )
+                                : DropdownButton<String>(
+                                    hint: const Text("Select Value"),
+                                    value: _selectedFilterValue,
+                                    items: _filterOptions[_selectedFilterCategory]!
+                                        .map((val) => DropdownMenuItem(
+                                            value: val, child: Text(val)))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      setState(() {
+                                        _selectedFilterValue = v;
+                                        _page = 0;
+                                      });
+                                    },
+                                  ),
+
                           ElevatedButton.icon(
                             onPressed: _isGenerating
                                 ? null
@@ -243,12 +494,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child:
-                                        CircularProgressIndicator(strokeWidth: 2))
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
                                 : const Icon(Icons.picture_as_pdf),
                             label: const Text('Generate Invoice'),
                           ),
-                          const SizedBox(width: 12),
                           ElevatedButton.icon(
                             onPressed: (_selectedOrderIds.isNotEmpty && !_isExporting)
                                 ? _exportOrdersToExcel
@@ -257,24 +507,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child:
-                                        CircularProgressIndicator(strokeWidth: 2))
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
                                 : const Icon(Icons.file_download),
                             label: Text('Export Excel (${_selectedOrderIds.length})'),
                           ),
-                          const Spacer(),
-                          const Text("Rows per page: "),
-                          DropdownButton<int>(
-                            value: _pageSize,
-                            items: _pageSizeOptions
-                                .map((s) =>
-                                    DropdownMenuItem(value: s, child: Text('$s')))
-                                .toList(),
-                            onChanged: (v) => setState(() {
-                              _pageSize = v!;
-                              _page = 0;
-                            }),
-                          )
                         ],
                       ),
                     ),
@@ -288,6 +525,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           child: DataTable(
                             showCheckboxColumn: true,
                             columns: const [
+                              DataColumn(label: Text("Date")),
                               DataColumn(label: Text("Order ID")),
                               DataColumn(label: Text("Customer Name")),
                               DataColumn(label: Text("Mobile")),
@@ -296,9 +534,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               DataColumn(label: Text("Order Status")),
                               DataColumn(label: Text("Shipment Status")),
                               DataColumn(label: Text("Invoice")),
-                              DataColumn(label: Text("Date")),
+                              DataColumn(label: Text("Payment")),
                             ],
-                            rows: pageOrders.map((order) {
+                            rows: _pagedOrders(allOrders).map((order) {
                               final isSelected =
                                   _selectedOrderIds.contains(order.orderId);
                               return DataRow(
@@ -313,6 +551,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   });
                                 },
                                 cells: [
+                                  DataCell(Text(order.orderDate)),
                                   DataCell(
                                     InkWell(
                                       child: Text(order.orderId,
@@ -321,7 +560,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                       onTap: () => _showOrderDetails(context, order),
                                     ),
                                   ),
-                                  DataCell(Text(order.customer?.fullName?.toString() ?? "N/A")),
+                                  DataCell(Text(order.customer?.fullName ?? "N/A")),
                                   DataCell(Text(order.customer?.mobileNumber ?? "N/A")),
                                   DataCell(Text(
                                       "₹${order.totalAmount.toStringAsFixed(2)}")),
@@ -343,8 +582,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                           child: const Icon(Icons.picture_as_pdf,
                                               color: Colors.red),
                                           onTap: () async {
-                                            final url =
-                                                Uri.parse(order.invoiceUrl!);
+                                            final url = Uri.parse(order.invoiceUrl!);
                                             if (await canLaunchUrl(url)) {
                                               await launchUrl(url,
                                                   mode: LaunchMode
@@ -360,7 +598,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                           },
                                         )
                                       : const Text("N/A")),
-                                  DataCell(Text(order.orderDate)),
+                                  DataCell(
+                                    order.paymentTransactionId != null &&
+                                            order.paymentTransactionId!.isNotEmpty
+                                        ? InkWell(
+                                            onTap: () {
+                                              final url =
+                                                  "https://dashboard.razorpay.com/app/orders/${order.paymentTransactionId}";
+                                              launchUrl(Uri.parse(url));
+                                            },
+                                            child: Text(
+                                              order.paymentTransactionId!,
+                                              style: const TextStyle(
+                                                color: Colors.blue,
+                                                decoration: TextDecoration.underline,
+                                              ),
+                                            ),
+                                          )
+                                        : const Text("Not Paid"),
+                                  ),
                                 ],
                               );
                             }).toList(),
@@ -369,24 +625,37 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       ),
                     ),
 
-                    /// Pagination controls
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          onPressed: _page > 0
-                              ? () => setState(() => _page--)
-                              : null,
-                          icon: const Icon(Icons.chevron_left),
-                        ),
-                        Text('Page ${_page + 1} / $totalPages'),
-                        IconButton(
-                          onPressed: (_page + 1) < totalPages
-                              ? () => setState(() => _page++)
-                              : null,
-                          icon: const Icon(Icons.chevron_right),
-                        ),
-                      ],
+                    /// 🔹 Pagination controls + Rows per page
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          Text('Page ${_page + 1} / $totalPages'),
+                          IconButton(
+                            onPressed: (_page + 1) < totalPages
+                                ? () => setState(() => _page++)
+                                : null,
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                          const SizedBox(width: 20),
+                          const Text("Rows per page: "),
+                          DropdownButton<int>(
+                            value: _pageSize,
+                            items: _pageSizeOptions
+                                .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                                .toList(),
+                            onChanged: (v) => setState(() {
+                              _pageSize = v!;
+                              _page = 0;
+                            }),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

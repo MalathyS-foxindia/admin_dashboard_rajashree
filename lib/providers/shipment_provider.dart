@@ -67,10 +67,7 @@ class ShipmentProvider extends ChangeNotifier {
   Future<void> updateTrackingNumber(String orderId, String newTracking, String provider,bool isinline) async {
     var apiUrl ="${Env.supabaseUrl}/functions/v1/updateshipmenttracking?order_id=$orderId" ;
     try {
-      if(provider=="India Post")
-      {
-        newTracking="Yet to update";
-      }
+      
       if(isinline)
       {
         apiUrl+="&inline=true";

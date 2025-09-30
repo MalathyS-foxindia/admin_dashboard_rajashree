@@ -42,10 +42,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
       _selectedProvider = provider;
     });
 
-    // 👇 auto-save after provider detection
-    if (trackingNumber.isNotEmpty) {
-      _submit();
-    }
+   
   }
 
   Future<void> _submit() async {
@@ -109,18 +106,24 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                     value == null || value.isEmpty ? "Order ID is required" : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _trackingNumberController,
-                decoration: const InputDecoration(
-                  labelText: "Tracking ID",
-                  hintText: "Scan or enter Tracking ID",
-                  border: OutlineInputBorder(),
+                  TextFormField(
+                  controller: _trackingNumberController,
+                  decoration: const InputDecoration(
+                    labelText: "Tracking ID",
+                    hintText: "Scan or enter Tracking ID",
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    // Auto-detect provider while typing/scanning
+                    _detectProviderFromTracking(value);
+                  },
+                  onFieldSubmitted: (value) {
+                    // Barcode scanner sends Enter → trigger submit
+                    _submit();
+                  },
+                  validator: (value) =>
+                      value == null || value.isEmpty ? "Tracking ID is required" : null,
                 ),
-                onChanged:
-                    _detectProviderFromTracking, // 👈 auto-detect + auto-save
-                validator: (value) =>
-                    value == null || value.isEmpty ? "Tracking ID is required" : null,
-              ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: _selectedProvider,

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/products_model.dart';
 import '../providers/product_provider.dart';
 import '../widgets/product_form.dart';
+import 'package:admin_dashboard_rajashree/services/excel_service.dart';
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -250,17 +251,25 @@ void _showImageDialog(String imageUrl) {
           ),
           const Spacer(),
           ElevatedButton.icon(
-            onPressed: _selectedProductIds.isEmpty
-                ? null
-                : () {
-                    // TODO: implement export selected logic
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(
-                            'Exporting ${_selectedProductIds.length} products...')));
-                  },
-            icon: const Icon(Icons.download),
-            label: const Text("Export"),
-          ),
+  onPressed: _selectedProductIds.isEmpty
+      ? null
+      : () async {
+          final provider = context.read<ProductProvider>();
+          final selected = provider.items
+              .where((p) => _selectedProductIds.contains(p.id))
+              .toList();
+
+          await ExcelService.exportProductsToExcel(selected);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('✅ Exported ${selected.length} products')),
+            );
+          }
+        },
+  icon: const Icon(Icons.download),
+  label: const Text("Export"),
+),
         ],
       ),
     );

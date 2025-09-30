@@ -67,7 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 3,
         title: Row(
           children: [
-              Image.asset("images/logo.png", height: 32),
+              Image.asset('assets/images/logo.png', height: 32),
               const SizedBox(width: 12),
             const Text(
               "Rajashree Fashions",
