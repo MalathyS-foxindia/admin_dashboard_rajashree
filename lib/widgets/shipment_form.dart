@@ -42,10 +42,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
       _selectedProvider = provider;
     });
 
-    // 👇 auto-save after provider detection
-    if (trackingNumber.isNotEmpty) {
-      _submit();
-    }
+   
   }
 
   Future<void> _submit() async {
