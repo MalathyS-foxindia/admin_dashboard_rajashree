@@ -1,8 +1,6 @@
-
 import 'package:admin_dashboard_rajashree/providers/queries_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Providers
@@ -20,16 +18,18 @@ import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/reset_password_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
 import 'package:admin_dashboard_rajashree/models/Env.dart';
+
 const String supabaseUrl = Env.supabaseUrl;
 const String supabaseAnonKey = Env.anonKey;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
- 
 
   await Supabase.initialize(
     url: supabaseUrl,
     anonKey: supabaseAnonKey,
+    debug: true,
+    
   );
 
   runApp(const MyApp());
@@ -42,18 +42,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final SupabaseClient supabase = Supabase.instance.client;
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ProductProvider()),
-        ChangeNotifierProvider(
-            create: (_) => OrderProvider(Supabase.instance.client)),
+        ChangeNotifierProvider(create: (_) => OrderProvider(supabase)),
         ChangeNotifierProvider(create: (_) => PurchaseProvider()),
-        ChangeNotifierProvider( create: (_) => ShipmentProvider()),
-        ChangeNotifierProvider( create: (_) => VendorProvider()),
+        ChangeNotifierProvider(create: (_) => ShipmentProvider()),
+        ChangeNotifierProvider(create: (_) => VendorProvider()),
         ChangeNotifierProvider(create: (_) => ComboProvider()),
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
         ChangeNotifierProvider(create: (_) => QueriesProvider()),
-
       ],
       child: MaterialApp(
         title: 'Rajashree Fashions Admin',
@@ -62,10 +62,8 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: primaryBlue),
           useMaterial3: true,
         ),
-        initialRoute: '/',
+        home: const AuthWrapper(),
         routes: {
-          '/': (context) => const LoginScreen(),
-          '/dashboard': (context) => const DashboardScreen(),
           '/forgot-password': (context) => const ForgotPasswordScreen(),
         },
         onGenerateRoute: (settings) {
@@ -80,5 +78,55 @@ class MyApp extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// AuthWrapper automatically decides which page to show based on auth state
+class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  Session? _session;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    // Try to restore session from storage
+    final session = Supabase.instance.client.auth.currentSession;
+    setState(() {
+      _session = session;
+      _loading = false;
+    });
+
+    // Keep listening to sign-in / sign-out events
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      setState(() {
+        _session = data.session;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_session != null) {
+      return const DashboardScreen();
+    } else {
+      return const LoginScreen();
+    }
   }
 }
