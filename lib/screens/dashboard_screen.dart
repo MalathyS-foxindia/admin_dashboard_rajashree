@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:admin_dashboard_rajashree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajashree/services/dashboard_service.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 enum DashboardMenu {
   dashboard,
@@ -43,6 +45,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool get isAdmin => widget.role.toLowerCase() == "admin";
   bool get isManager => widget.role.toLowerCase() == "manager";
   bool get isExecutive => widget.role.toLowerCase() == "executive";
+String _selectedDsource = 'All';
+final List<String> _dsourceOptions = ['All', 'Website', 'WhatsApp'];
+
 
   Future<void> _pickDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -91,7 +96,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.lightGreenAccent),
             tooltip: 'Logout',
-            onPressed: () {
+            onPressed: () async {
+              // Properly sign out from Supabase
+              await Supabase.instance.client.auth.signOut();
+              // Navigate to login screen
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -262,81 +270,117 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 40),
+              Row(
+                children: [
+                  const Text(
+                    "Source: ",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  DropdownButton<String>(
+                    value: _selectedDsource,
+                    items: _dsourceOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedDsource = newValue!;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
 
             // --- Summary Cards ---
-            FutureBuilder<List<Map<String, dynamic>>?>(
-              future: _supabaseService.getDailySalesStats(_selectedDate),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError || !snapshot.hasData) {
-                  return const Center(child: Text("Failed to load data."));
-                }
+            FutureBuilder<List<dynamic>>(
+  future: Future.wait([
+    _supabaseService.getDailySalesStats(
+      _selectedDate,
+       _selectedDsource == 'All' ? null : _selectedDsource
+    ),
+    _supabaseService.getTotalCustomers(),
+    _supabaseService.getTotalProducts(),
+  ]),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (snapshot.hasError || !snapshot.hasData) {
+      return const Center(child: Text("Failed to load data."));
+    }
 
-                final dailyStats = snapshot.data!;
-                final totalSales = dailyStats.isNotEmpty
-                    ? dailyStats[0]['total_sales']?.toString() ?? '0'
-                    : '0';
-                final orderCount = dailyStats.isNotEmpty
-                    ? dailyStats[0]['order_count']?.toString() ?? '0'
-                    : '0';
+    final dailyStats = snapshot.data![0] as List<Map<String, dynamic>>;
+    final customerCount = snapshot.data![1] as int;
+    final productCount = snapshot.data![2] as int;
 
-                final crossAxisCount = isDesktop ? 4 : (isTablet ? 2 : 1);
-                return GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: isDesktop ? 2.5 : 2.0,
-                  children: [
-                    _SummaryCard(
-                      title: "Sales (Today)",
-                      value: "₹$totalSales",
-                      color: const Color(0xFF7E57C2),
-                      icon: Icons.currency_rupee,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    _SummaryCard(
-                      title: "Orders (Today)",
-                      value: orderCount,
-                      color: Colors.green,
-                      icon: Icons.shopping_bag,
-                      gradient: LinearGradient(
-                        colors: [Colors.green.shade400, Colors.green.shade700],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    const _SummaryCard(
-                        title: "Customers",
-                        value: "0",
-                        color: Colors.orange,
-                        icon: Icons.people,
-                        gradient: LinearGradient(
-                          colors: [Colors.orange, Colors.deepOrange],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )),
-                    const _SummaryCard(
-                        title: "Products",
-                        value: "0",
-                        color: Colors.purple,
-                        icon: Icons.inventory,
-                        gradient: LinearGradient(
-                          colors: [Colors.purple, Colors.deepPurple],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 20),
+    final totalSales = dailyStats.isNotEmpty
+        ? dailyStats[0]['total_sales']?.toString() ?? '0'
+        : '0';
+    final orderCount = dailyStats.isNotEmpty
+        ? dailyStats[0]['order_count']?.toString() ?? '0'
+        : '0';
+
+    final crossAxisCount = isDesktop ? 4 : (isTablet ? 2 : 1);
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: crossAxisCount,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: isDesktop ? 2.5 : 2.0,
+      children: [
+        _SummaryCard(
+          title: "Sales (${_selectedDate == DateTime.now() ? 'Today' : 'Selected'})",
+          value: "₹$totalSales",
+          color: const Color(0xFF7E57C2),
+          icon: Icons.currency_rupee,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        _SummaryCard(
+          title: "Orders (${_selectedDate == DateTime.now() ? 'Today' : 'Selected'})",
+          value: orderCount,
+          color: Colors.green,
+          icon: Icons.shopping_bag,
+          gradient: LinearGradient(
+            colors: [Colors.green.shade400, Colors.green.shade700],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        _SummaryCard(
+          title: "Customers",
+          value: customerCount.toString(),
+          color: Colors.orange,
+          icon: Icons.people,
+          gradient: const LinearGradient(
+            colors: [Colors.orange, Colors.deepOrange],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        _SummaryCard(
+          title: "Products",
+          value: productCount.toString(),
+          color: Colors.purple,
+          icon: Icons.inventory,
+          gradient: const LinearGradient(
+            colors: [Colors.purple, Colors.deepPurple],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+      ],
+    );
+  },
+),
+const SizedBox(height: 20),
 
             // --- Line Chart for Last Week ---
             const Text("Weekly Sales & Orders", style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
