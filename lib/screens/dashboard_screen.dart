@@ -12,6 +12,8 @@ import 'package:admin_dashboard_rajashree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajashree/services/dashboard_service.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 
 enum DashboardMenu {
@@ -48,6 +50,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
 String _selectedDsource = 'All';
 final List<String> _dsourceOptions = ['All', 'Website', 'WhatsApp'];
 
+@override
+void initState() {
+  super.initState();
+  _loadLastMenu();
+}
+
+Future<void> _loadLastMenu() async {
+  final prefs = await SharedPreferences.getInstance();
+  final lastMenu = prefs.getString('last_menu');
+  if (lastMenu != null) {
+    setState(() {
+      selectedMenu = DashboardMenu.values.firstWhere(
+        (m) => m.toString() == lastMenu,
+        orElse: () => DashboardMenu.dashboard,
+      );
+    });
+  }
+}
 
   Future<void> _pickDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -62,7 +82,17 @@ final List<String> _dsourceOptions = ['All', 'Website', 'WhatsApp'];
       });
     }
   }
+Future<void> _saveMenu(DashboardMenu menu) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_menu', menu.toString());
+  }
 
+  void _onMenuSelect(DashboardMenu menu) {
+    setState(() {
+      selectedMenu = menu;
+    });
+    _saveMenu(menu); // ✅ Save on every change
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,14 +127,26 @@ final List<String> _dsourceOptions = ['All', 'Website', 'WhatsApp'];
             icon: const Icon(Icons.logout, color: Colors.lightGreenAccent),
             tooltip: 'Logout',
             onPressed: () async {
-              // Properly sign out from Supabase
-              await Supabase.instance.client.auth.signOut();
-              // Navigate to login screen
-              Navigator.pushReplacement(
+            final supabase = Supabase.instance.client;
+
+            // 1️⃣ Sign out from Supabase
+            await supabase.auth.signOut();
+
+            // 2️⃣ Remove locally saved session data
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('supabase_session');
+            await prefs.remove('access_token'); // if you saved this too
+            await prefs.remove('last_menu'); // Clear last menu on logout
+            // 3️⃣ Navigate to login screen
+            if (context.mounted) {
+              Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
               );
-            },
+            }
+          },
+
           ),
         ],
 
@@ -163,7 +205,8 @@ final List<String> _dsourceOptions = ['All', 'Website', 'WhatsApp'];
         borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
-        onTap: () => setState(() => selectedMenu = menu),
+       
+        onTap: () => _onMenuSelect(menu),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 7), // ⬅️ taller items
           child: Row(
