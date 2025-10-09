@@ -100,7 +100,8 @@ pw.Container(
           pw.SizedBox(height: 5),
           pw.Text("$customerName", style: pw.TextStyle(font: customFont, fontSize: 14)),
           pw.Text("$shippingAddress", style: pw.TextStyle(font: customFont, fontSize: 14)),
-          pw.Text("No: $mobileNumber", style: pw.TextStyle(font: customFont, fontSize: 14)),
+          pw.Text("$shippingState", style: pw.TextStyle(font: customFont, fontSize: 12)),
+          pw.Text("No: $mobileNumber", style: pw.TextStyle(font: customFont, fontSize: 12)),
         ],
       ),
 
