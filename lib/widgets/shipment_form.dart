@@ -114,13 +114,19 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (value) {
-                    // Auto-detect provider while typing/scanning
+                    // Works for manual typing
                     _detectProviderFromTracking(value);
                   },
                   onFieldSubmitted: (value) {
-                    // Barcode scanner sends Enter → trigger submit
-                    _submit();
+                    // Works for barcode scanners (Enter key)
+                    final cleaned = value.trim();
+                    _trackingNumberController.text = cleaned;
+                    _detectProviderFromTracking(cleaned);
+
+                    // Delay a bit so setState updates before submit
+                    Future.delayed(const Duration(milliseconds: 100), _submit);
                   },
+                 
                   validator: (value) =>
                       value == null || value.isEmpty ? "Tracking ID is required" : null,
                 ),

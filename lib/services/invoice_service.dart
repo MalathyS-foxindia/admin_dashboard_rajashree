@@ -96,12 +96,11 @@ pw.Container(
       pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text("Shipping Address", style: pw.TextStyle(font: customFont, fontSize: 14, fontWeight: pw.FontWeight.bold)),
+          pw.Text("Shipping Address", style: pw.TextStyle(font: customFont, fontSize: 12, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 5),
-          pw.Text("$customerName", style: pw.TextStyle(font: customFont, fontSize: 12)),
-          pw.Text("$shippingAddress", style: pw.TextStyle(font: customFont, fontSize: 12)),
-          pw.Text("State: $shippingState", style: pw.TextStyle(font: customFont, fontSize: 12)),
-          pw.Text("Contact No: $mobileNumber", style: pw.TextStyle(font: customFont, fontSize: 12)),
+          pw.Text("$customerName", style: pw.TextStyle(font: customFont, fontSize: 14)),
+          pw.Text("$shippingAddress", style: pw.TextStyle(font: customFont, fontSize: 14)),
+          pw.Text("No: $mobileNumber", style: pw.TextStyle(font: customFont, fontSize: 14)),
         ],
       ),
 
