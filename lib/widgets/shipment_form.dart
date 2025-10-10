@@ -27,23 +27,22 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   String _trackingUrl = "";
 
   /// Detect provider + tracking URL from tracking number
-  void _detectProviderFromTracking(String trackingNumber) {
-    String? provider;
+ void _detectProviderFromTracking(String trackingNumber) {
+  final RegExp isAlphaOnly = RegExp(r'^[A-Za-z]+$');
+  String? provider;
 
-    if (trackingNumber.startsWith("C")) {
-      provider = "DTDC";
-    } else if (trackingNumber.startsWith("F")) {
-      provider = "Franch Express";
-    } else if (trackingNumber.endsWith("IN")) {
-      provider = "India Post";
-    }
-
-    setState(() {
-      _selectedProvider = provider;
-    });
-
-   
+  if (trackingNumber.startsWith("C")) {
+    provider = "DTDC";
+  } else if (!isAlphaOnly.hasMatch(trackingNumber)) {
+    provider = "Franch Express";
+  } else if (trackingNumber.endsWith("IN")) {
+    provider = "India Post";
   }
+
+  setState(() {
+    _selectedProvider = provider;
+  });
+}
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
