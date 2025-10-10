@@ -153,17 +153,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   style: const TextStyle(color: Colors.blue),
                 ),
               ],
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Spacer(),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.bug_report),
-                    label: const Text("Mock Data"),
-                    onPressed: _fillMockData,
-                  ),
-                ],
-              ),
+            
             ],
           ),
         ),
