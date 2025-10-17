@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart'; // Import the forgot password screen
+import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart';
 import "../models/Env.dart";
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -32,10 +33,11 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
+      final supabaseUrl = Env.supabaseUrl;
+      final anonKey = Env.anonKey;
 
-     final supabaseUrl = Env.supabaseUrl;
-  final anonKey = Env.anonKey;
-    
+      print('🔵 [LOGIN] URL: $supabaseUrl/rest/v1/users?email=eq.$email');
+
       final response = await http.get(
         Uri.parse(
             '$supabaseUrl/rest/v1/users?email=eq.$email&select=email,password,role'),
@@ -45,26 +47,35 @@ class _LoginScreenState extends State<LoginScreen> {
         },
       );
 
+      print('🟢 [LOGIN] Status: ${response.statusCode}');
+      print('🟢 [LOGIN] Content-Type: ${response.headers['content-type']}');
+      print('🟢 [LOGIN] Body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List;
-        if (data.isNotEmpty && data.first['password'] == pass) {
-         final String role = data.first['role'] ?? "Executive";
+        print('🟢 [LOGIN] Parsed data: $data');
 
-          // ✅ Success → Go to Dashboard
+        if (data.isNotEmpty && data.first['password'] == pass) {
+          final String role = data.first['role'] ?? "Executive";
+          print('✅ [LOGIN] Success! Role: $role');
+
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => DashboardScreen(role: role)),
           );
         } else {
+          print('🔴 [LOGIN] Invalid credentials');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('❌ Invalid email or password')),
           );
         }
       } else {
+        print('🔴 [LOGIN] Failed with status: ${response.statusCode}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('❌ Login failed: ${response.body}')),
         );
       }
     } catch (e) {
+      print('🔴 [LOGIN] Exception: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Error: $e')),
       );
@@ -82,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // Background Image
           Positioned.fill(
             child: Image.asset(
-              'assets/images/login_bg4.png', // ✅ You need to add this image to your assets folder
+              'assets/images/login_bg4.png',
               fit: BoxFit.cover,
             ),
           ),
@@ -149,14 +160,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   prefixIcon: Icon(Icons.email)),
                             ),
                             const SizedBox(height: 12),
-                            /*TextField(
-                              controller: _password,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                  labelText: 'Password',
-                                  prefixIcon: Icon(Icons.lock)),
-                            ),*/
-
                             TextField(
                               controller: _password,
                               obscureText: _obscurePassword,
@@ -175,7 +178,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                             ),
-
                             const SizedBox(height: 20),
                             SizedBox(
                               width: double.infinity,
@@ -216,181 +218,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
-
-/*import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
-import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart'; // Import the forgot password screen
-
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
-
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _email = TextEditingController();
-  final TextEditingController _password = TextEditingController();
-  bool _loading = false;
-
-  Future<void> _login() async {
-    final email = _email.text.trim();
-    final pass = _password.text;
-
-    if (email.isEmpty || pass.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email & password')),
-      );
-      return;
-    }
-
-    setState(() => _loading = true);
-
-    try {
-      final supabaseUrl = Env.supabaseUrl!;
-      final anonKey = Env.anonKey!;
-
-      final response = await http.get(
-        Uri.parse(
-            '$supabaseUrl/rest/v1/users?email=eq.$email&select=email,password'),
-        headers: {
-          'apikey': anonKey,
-          'Authorization': 'Bearer $anonKey',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List;
-        if (data.isNotEmpty && data.first['password'] == pass) {
-          // ✅ Success → Go to Dashboard
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ Invalid email or password')),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Login failed: ${response.body}')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
-      );
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width > 600;
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'images/login_bg3.jpg', // ✅ You need to add this image to your assets folder
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Gradient Overlay to improve readability with a brighter look
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.2), // Reduced opacity
-                    Colors.black.withOpacity(0.4), // Reduced opacity
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Login Form
-          Center(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: isWide ? 0 : 20),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Container( // Using Container instead of Card for a borderless look
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.85), // Semi-transparent white background
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset('images/logo.png',
-                          height: 56, width: 56, fit: BoxFit.contain),
-                      const SizedBox(height: 10),
-                      Text('Rajashree Fashion Admin',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium!
-                              .copyWith(color: Colors.black87)), // Changed text color to black
-                      const SizedBox(height: 18),
-                      TextField(
-                        controller: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email)),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _password,
-                        obscureText: true,
-                        decoration: const InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock)),
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: FilledButton.tonalIcon(
-                          icon: _loading
-                              ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2))
-                              : const Icon(Icons.login),
-                          label: const Text('Login'),
-                          onPressed: _loading ? null : _login,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                          );
-                        },
-                        child: const Text("Forgot Password?"),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}*/
-
