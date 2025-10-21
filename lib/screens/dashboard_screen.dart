@@ -7,6 +7,7 @@ import 'package:admin_dashboard_rajashree/screens/returns_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/trackship_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/vendor_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/combo_screen.dart';
+import 'package:admin_dashboard_rajashree/screens/banner_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:admin_dashboard_rajashree/screens/login_screen.dart';
 import 'package:admin_dashboard_rajashree/services/dashboard_service.dart';
@@ -27,6 +28,7 @@ enum DashboardMenu {
   customers,
   queries,
   returns,
+  banners
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -188,6 +190,7 @@ Future<void> _saveMenu(DashboardMenu menu) async {
             _buildMenuItem(DashboardMenu.customers, Icons.person, "Customers", allowed: isAdmin),
             _buildMenuItem(DashboardMenu.queries, Icons.live_help_sharp, "Queries", allowed: isAdmin || isManager),
             _buildMenuItem(DashboardMenu.returns, Icons.assignment_returned, "Returns", allowed: isAdmin || isManager),
+            _buildMenuItem(DashboardMenu.banners, Icons.image, "Banners", allowed: isAdmin)
           ],
         ),
       ),
@@ -268,6 +271,8 @@ Future<void> _saveMenu(DashboardMenu menu) async {
     return (isAdmin || isManager) ? const QueriesScreen() : _noAccess();
     case DashboardMenu.returns:
     return (isAdmin || isManager) ? const ReturnsScreen() : _noAccess();
+    case DashboardMenu.banners:
+    return isAdmin ?  const BannerFormScreen() : _noAccess();
     }
   }
 
