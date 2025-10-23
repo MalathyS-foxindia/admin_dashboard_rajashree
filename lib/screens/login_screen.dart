@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
@@ -19,17 +21,25 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _obscurePassword = true;
 
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
   Future<void> _login() async {
     final email = _email.text.trim();
-    final pass = _password.text;
+    final password = _password.text;
 
-    if (email.isEmpty || pass.isEmpty) {
+    if (email.isEmpty || password.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter email & password')),
       );
       return;
     }
 
+    if (!mounted) return;
     setState(() => _loading = true);
 
     try {
@@ -71,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         print('🔴 [LOGIN] Failed with status: ${response.statusCode}');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Login failed: ${response.body}')),
+          const SnackBar(content: Text('❌ Invalid email or password')),
         );
       }
     } catch (e) {
@@ -80,24 +90,63 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text('❌ Error: $e')),
       );
     } finally {
+      if (!mounted) return;
       setState(() => _loading = false);
     }
   }
 
+  // Restore previous session
+ Future<void> _restoreSession() async {
+  final prefs = await SharedPreferences.getInstance();
+  final savedSession = prefs.getString('supabase_session');
+  if (savedSession == null) return;
+
+  try {
+    final sessionMap = jsonDecode(savedSession);
+    final session = Session.fromJson(sessionMap);
+
+    if (session != null) {
+      // ✅ Set session with the full Session object
+     final accessToken = prefs.getString('access_token');
+if (accessToken != null) {
+  await Supabase.instance.client.auth.setSession(accessToken);
+}
+      // Fetch role safely
+      final userEmail = session!.user?.email;
+      String role = "Executive";
+
+      if (userEmail != null) {
+        final roleResponse = await Supabase.instance.client
+            .from('users')
+            .select('role')
+            .eq('email', userEmail)
+            .maybeSingle();
+        role = roleResponse?['role'] ?? "Executive";
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => DashboardScreen(role: role)),
+      );
+    }
+  } catch (e) {
+    print("Session restore failed: $e");
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width > 600;
+
     return Scaffold(
       body: Stack(
         children: [
-          // Background Image
           Positioned.fill(
             child: Image.asset(
               'assets/images/login_bg4.png',
               fit: BoxFit.cover,
             ),
           ),
-          // Gradient Overlay to improve readability
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -112,7 +161,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          // Login Form
           Center(
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: isWide ? 0 : 20),
@@ -122,30 +170,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   elevation: 8,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 22),
-                        decoration: const BoxDecoration(
-                          borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(16)),
-                          gradient: LinearGradient(
-                              colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)]),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset('assets/images/logo.png',
+                            height: 56, width: 56, fit: BoxFit.contain),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Rajashree Fashion Admin',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium!
+                              .copyWith(color: Colors.black87),
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Image.asset('assets/images/logo.png',
-                                height: 56, width: 56, fit: BoxFit.contain),
-                            const SizedBox(height: 10),
-                            Text('Rajashree Fashion Admin',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium!
-                                    .copyWith(color: Colors.white)),
-                          ],
+                        const SizedBox(height: 18),
+                        TextField(
+                          controller: _email,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: Icon(Icons.email),
+                          ),
                         ),
                       ),
                       Padding(
@@ -177,6 +224,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                   },
                                 ),
                               ),
+                              onPressed: () {
+                                if (!mounted) return;
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
                             ),
                             const SizedBox(height: 20),
                             SizedBox(
@@ -188,23 +241,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                     width: 20,
                                     height: 20,
                                     child: CircularProgressIndicator(
-                                        strokeWidth: 2))
-                                    : const Icon(Icons.login),
-                                label: const Text('Login'),
-                                onPressed: _loading ? null : _login,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                                );
-                              },
-                              child: const Text("Forgot Password?"),
-                            ),
-                          ],
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.login),
+                            label: const Text('Login'),
+                            onPressed: _loading ? null : _login,
+                          ),
                         ),
                       ),
                     ],
