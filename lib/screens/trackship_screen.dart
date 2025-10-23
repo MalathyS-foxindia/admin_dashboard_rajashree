@@ -146,6 +146,26 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                         icon: const Icon(Icons.download),
                         label: const Text('Export Excel'),
                       ),
+                      ElevatedButton.icon(
+                      onPressed: _selectedRows.isEmpty
+                          ? null
+                          : () async {
+                              final selectedItems = _selectedRows
+                                  .map((i) => shipmentProvider.shipments[i])
+                                  .toList();
+
+                              await shipmentProvider.sendShipmentStatus(selectedItems);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Shipment status sent successfully"),
+                                  backgroundColor: Colors.green,  
+                                ),
+                              );
+                            },
+                      icon: const Icon(Icons.send),
+                      label: const Text('Send Status'),
+                    )
                     ],
                   ),
                 ),
