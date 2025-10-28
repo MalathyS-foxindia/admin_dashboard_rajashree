@@ -14,9 +14,12 @@ class QueriesProvider with ChangeNotifier {
   bool isLoading = false;
   String errorMessage = '';
 
+  /// 🔹 Fetch all queries
   Future<void> fetchQueries() async {
     isLoading = true;
+    errorMessage = '';
     notifyListeners();
+
     try {
       final url = '$_supabaseUrl/rest/v1/queries?select=*';
       final res = await http.get(
@@ -28,17 +31,24 @@ class QueriesProvider with ChangeNotifier {
         final data = jsonDecode(res.body) as List;
         _queries = data.map((e) => QueryModel.fromJson(e)).toList();
       } else {
-        errorMessage = "Failed: ${res.body}";
+        errorMessage = "Failed to fetch data: ${res.body}";
       }
     } catch (e) {
       errorMessage = "Error: $e";
     }
+
     isLoading = false;
     notifyListeners();
   }
 
-  Future<void> updateStatus(int queryId, String newStatus) async {
+  /// 🔹 Update query status with SnackBar feedback
+  Future<void> updateStatus(
+    BuildContext context,
+    int queryId,
+    String newStatus,
+  ) async {
     final url = '$_supabaseUrl/rest/v1/queries?query_id=eq.$queryId';
+
     try {
       final res = await http.patch(
         Uri.parse(url),
@@ -46,30 +56,90 @@ class QueriesProvider with ChangeNotifier {
           'apikey': _anonKey,
           'Authorization': 'Bearer $_anonKey',
           'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
         },
         body: jsonEncode({'status': newStatus}),
       );
 
-      if (res.statusCode == 200) {
+      if (res.statusCode == 204 || res.statusCode == 200) {
         _queries = _queries.map((q) {
           if (q.queryId == queryId) {
-            return QueryModel(
-              queryId: q.queryId,
-              name: q.name,
-              customerId: q.customerId,
-              mobileNumber: q.mobileNumber,
-              email: q.email,
-              message: q.message,
-              status: newStatus,
-              createdAt: q.createdAt,
-            );
+            return q.copyWith(status: newStatus);
           }
           return q;
         }).toList();
+
         notifyListeners();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Status updated to "$newStatus"'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        throw Exception("Failed with ${res.body}");
       }
     } catch (e) {
       debugPrint("Update status failed: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Failed to update status'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// 🔹 Update query remarks with SnackBar feedback
+  Future<void> updateRemarks(
+    BuildContext context,
+    int queryId,
+    String remark,
+  ) async {
+    final url = '$_supabaseUrl/rest/v1/queries?query_id=eq.$queryId';
+
+    try {
+      final res = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'apikey': _anonKey,
+          'Authorization': 'Bearer $_anonKey',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+        },
+        body: jsonEncode({'remarks': remark}),
+      );
+
+      if (res.statusCode == 204 || res.statusCode == 200) {
+        _queries = _queries.map((q) {
+          if (q.queryId == queryId) {
+            return q.copyWith(remarks: remark);
+          }
+          return q;
+        }).toList();
+
+        notifyListeners();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('💬 Remarks updated successfully'),
+            backgroundColor: Colors.blueAccent,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        throw Exception("Failed with ${res.body}");
+      }
+    } catch (e) {
+      debugPrint("Remarks update failed: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Failed to update remarks'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:admin_dashboard_rajashree/screens/dashboard_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:admin_dashboard_rajashree/screens/forgot_password_screen.dart';
+import "../models/Env.dart";
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,41 +43,49 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final supabase = Supabase.instance.client;
+      final supabaseUrl = Env.supabaseUrl;
+      final anonKey = Env.anonKey;
 
-      final response = await supabase.auth.signInWithPassword(
-        email: email,
-        password: password,
+      print('🔵 [LOGIN] URL: $supabaseUrl/rest/v1/users?email=eq.$email');
+
+      final response = await http.get(
+        Uri.parse(
+            '$supabaseUrl/rest/v1/users?email=eq.$email&select=email,password,role'),
+        headers: {
+          'apikey': anonKey,
+          'Authorization': 'Bearer $anonKey',
+        },
       );
 
-      final session = response.session;
-      if (session != null) {
-        // Save session in SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('supabase_session', jsonEncode(session.toJson()));
+      print('🟢 [LOGIN] Status: ${response.statusCode}');
+      print('🟢 [LOGIN] Content-Type: ${response.headers['content-type']}');
+      print('🟢 [LOGIN] Body: ${response.body}');
 
-        // Fetch user role
-        final roleResponse = await supabase
-            .from('users')
-            .select('role')
-            .eq('email', email)
-            .maybeSingle();
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as List;
+        print('🟢 [LOGIN] Parsed data: $data');
 
-        final String role = roleResponse?['role'] ?? "Executive";
-        print('User role: $role');
+        if (data.isNotEmpty && data.first['password'] == pass) {
+          final String role = data.first['role'] ?? "Executive";
+          print('✅ [LOGIN] Success! Role: $role');
 
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => DashboardScreen(role: role)),
-        );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => DashboardScreen(role: role)),
+          );
+        } else {
+          print('🔴 [LOGIN] Invalid credentials');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ Invalid email or password')),
+          );
+        }
       } else {
-        if (!mounted) return;
+        print('🔴 [LOGIN] Failed with status: ${response.statusCode}');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('❌ Invalid email or password')),
         );
       }
     } catch (e) {
-      if (!mounted) return;
+      print('🔴 [LOGIN] Exception: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Error: $e')),
       );
@@ -183,18 +194,35 @@ if (accessToken != null) {
                             prefixIcon: Icon(Icons.email),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _password,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          children: [
+                            TextField(
+                              controller: _email,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: const InputDecoration(
+                                  labelText: 'Email',
+                                  prefixIcon: Icon(Icons.email)),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _password,
+                              obscureText: _obscurePassword,
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: const Icon(Icons.lock),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscurePassword = !_obscurePassword;
+                                    });
+                                  },
+                                ),
                               ),
                               onPressed: () {
                                 if (!mounted) return;
@@ -203,15 +231,13 @@ if (accessToken != null) {
                                 });
                               },
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: FilledButton.tonalIcon(
-                            icon: _loading
-                                ? const SizedBox(
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: FilledButton.tonalIcon(
+                                icon: _loading
+                                    ? const SizedBox(
                                     width: 20,
                                     height: 20,
                                     child: CircularProgressIndicator(
@@ -222,21 +248,8 @@ if (accessToken != null) {
                             onPressed: _loading ? null : _login,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () {
-                            if (!mounted) return;
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      const ForgotPasswordScreen()),
-                            );
-                          },
-                          child: const Text("Forgot Password?"),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
