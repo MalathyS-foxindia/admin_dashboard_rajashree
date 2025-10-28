@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/products_model.dart';
 import '../providers/product_provider.dart';
 import '../widgets/product_form.dart';
+import '../widgets/review_analysis_widget.dart';
 import 'package:admin_dashboard_rajashree/services/excel_service.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -92,119 +93,122 @@ void _showImageDialog(String imageUrl) {
       );
     }
   }
+Future<void> _showProductDetails(Product p) async {
+  await showDialog(
+    context: context,
+    builder: (ctx) {
+      final productActive = _isProductActive(p);
 
-  Future<void> _showProductDetails(Product p) async {
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        final productActive = _isProductActive(p);
-
-        return AlertDialog(
-          title: Row(
-            children: [
-              Expanded(child: Text(p.name)),
-              Icon(
-                productActive ? Icons.check_circle : Icons.cancel,
-                color: productActive ? Colors.green : Colors.red,
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (p.imageUrl != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Image.network(p.imageUrl!, height: 100),
-                  ),
-                Row(
-                  children: [
-                    const Text('SKU: ',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(p.sku),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Text('Category: ',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(p.category),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (p.variants != null && p.variants!.isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Variants:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      ...p.variants!.map((v) {
-                        final lowStock = (v.stock ?? 0) < 10;
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("• ", style: TextStyle(fontSize: 18)),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(child: Text(v.name)),
-                                      Icon(
-                                        v.isActive == true
-                                            ? Icons.check_circle
-                                            : Icons.cancel,
-                                        color: v.isActive == true
-                                            ? Colors.green
-                                            : Colors.red,
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    'SKU: ${v.sku}, Regular: ${v.regularPrice}, Sale: ${v.salePrice}, Weight: ${v.weight}',
-                                  ),
-                                  Text(
-                                    'Stock: ${v.stock?.toStringAsFixed(0) ?? '0'}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color:
-                                          lowStock ? Colors.red : Colors.black,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      }),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Close'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _openEditDialog(p);
-              },
-              child: const Text('Edit'),
+      return AlertDialog(
+        title: Row(
+          children: [
+            Expanded(child: Text(p.name)),
+            Icon(
+              productActive ? Icons.check_circle : Icons.cancel,
+              color: productActive ? Colors.green : Colors.red,
             ),
           ],
-        );
-      },
-    );
-  }
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (p.imageUrl != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Image.network(p.imageUrl!, height: 100),
+                ),
+              Row(
+                children: [
+                  const Text('SKU: ',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(p.sku),
+                ],
+              ),
+              Row(
+                children: [
+                  const Text('Category: ',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(p.category),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (p.variants != null && p.variants!.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Variants:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    ...p.variants!.map((v) {
+                      final lowStock = (v.stock ?? 0) < 10;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: Text(v.name)),
+                              IconButton(
+                                icon: const Icon(Icons.star, color: Colors.amber),
+                                tooltip: 'View Reviews',
+                                onPressed: () {
+                                  Navigator.of(context).push(MaterialPageRoute(
+                                    builder: (_) => ReviewAnalysisWidget(
+                                      variantId: v.id!,
+                                      variantName: v.name,
+                                    ),
+                                  ));
+                                },
+                              ),
+                              Icon(
+                                v.isActive == true
+                                    ? Icons.check_circle
+                                    : Icons.cancel,
+                                color: v.isActive == true
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'SKU: ${v.sku}, Regular: ${v.regularPrice}, Sale: ${v.salePrice}, Weight: ${v.weight}',
+                          ),
+                          Text(
+                            'Stock: ${v.stock?.toStringAsFixed(0) ?? '0'}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: lowStock ? Colors.red : Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _openEditDialog(p);
+            },
+            child: const Text('Edit'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
 
   Widget _buildFilterBar(ProductProvider provider) {
     return Padding(

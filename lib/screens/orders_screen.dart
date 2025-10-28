@@ -26,7 +26,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   /// 🔹 Define available filter categories
   final Map<String, List<String>> _filterOptions = {
     "Status": ["processing", "Completed", "failed"],
-    "Source": ["Website", "Whatsapp"],
+    "Source": ["Website", "WhatsApp"],
     "Date": [] // empty list, we use DatePicker instead of dropdown
   };
 

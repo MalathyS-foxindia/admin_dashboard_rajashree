@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:admin_dashboard_rajashree/models/Env.dart';
 import '../models/purchase_model.dart';
 
 class PurchaseProvider with ChangeNotifier {
-  final String _supabaseUrl = Env.supabaseUrl?? '';
-  final String _anonKey = Env.anonKey?? '';
+  final String _supabaseUrl = Env.supabaseUrl ?? '';
+  final String _anonKey = Env.anonKey ?? '';
 
   List<Purchase> _purchases = [];
   List<Purchase> get purchases => _purchases;
@@ -52,13 +51,13 @@ class PurchaseProvider with ChangeNotifier {
 
   /// ✅ Add Purchase + Items + update stock + vendor transaction
   Future<bool> addPurchase(
-      String invoiceNo,
-      DateTime invoiceDate,
-      int vendorId,
-      double totalAmount,
-      String? invoiceImage,
-      List<Map<String, dynamic>> items,
-      ) async {
+    String invoiceNo,
+    DateTime invoiceDate,
+    int vendorId,
+    double totalAmount,
+    String? invoiceImage,
+    List<Map<String, dynamic>> items,
+  ) async {
     try {
       // ✅ Build request body dynamically
       final purchaseBody = {
@@ -98,7 +97,8 @@ class PurchaseProvider with ChangeNotifier {
               'purchase_id': purchaseId,
               'variant_id': item['variant'],
               'quantity': item['quantity'],
-              'cost_price': item['unitPrice'] *
+              'cost_price':
+                  item['unitPrice'] *
                   item['quantity'], // ✅ total cost (not unit price only)
             }),
           );
@@ -111,7 +111,8 @@ class PurchaseProvider with ChangeNotifier {
           // 3️⃣ Update stock
           final stockRes = await http.get(
             Uri.parse(
-                '$_supabaseUrl/rest/v1/product_variants?select=stock&variant_id=eq.${item['variant']}'),
+              '$_supabaseUrl/rest/v1/product_variants?select=stock&variant_id=eq.${item['variant']}',
+            ),
             headers: _headers(),
           );
 
@@ -123,7 +124,8 @@ class PurchaseProvider with ChangeNotifier {
 
             final updateRes = await http.patch(
               Uri.parse(
-                  '$_supabaseUrl/rest/v1/product_variants?variant_id=eq.${item['variant']}'),
+                '$_supabaseUrl/rest/v1/product_variants?variant_id=eq.${item['variant']}',
+              ),
               headers: _headers(),
               body: jsonEncode({'stock': newStock}),
             );

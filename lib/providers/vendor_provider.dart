@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/vendor_model.dart';
 import '../models/vendor_transaction_model.dart';
 import 'package:admin_dashboard_rajashree/models/Env.dart';
+
 class VendorProvider with ChangeNotifier {
-  final String _supabaseUrl = Env.supabaseUrl?? '';
-  final String _anonKey = Env.anonKey?? '';
+  final String _supabaseUrl = Env.supabaseUrl ?? '';
+  final String _anonKey = Env.anonKey ?? '';
 
   List<Vendor> _vendors = [];
   List<Vendor> get vendors => _vendors;
@@ -60,8 +60,11 @@ class VendorProvider with ChangeNotifier {
     final url = '$_supabaseUrl/rest/v1/vendor';
     try {
       final payload = vendor.toInsertJson();
-      final response =
-      await http.post(Uri.parse(url), headers: _headers(), body: jsonEncode(payload));
+      final response = await http.post(
+        Uri.parse(url),
+        headers: _headers(),
+        body: jsonEncode(payload),
+      );
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body) as List;
@@ -91,8 +94,9 @@ class VendorProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         final updated = jsonDecode(response.body) as List;
         final updatedVendor = Vendor.fromJson(updated.first);
-        final index =
-        _vendors.indexWhere((v) => v.vendor_id == updatedVendor.vendor_id);
+        final index = _vendors.indexWhere(
+          (v) => v.vendor_id == updatedVendor.vendor_id,
+        );
         if (index != -1) _vendors[index] = updatedVendor;
         notifyListeners();
         return true;
@@ -107,9 +111,9 @@ class VendorProvider with ChangeNotifier {
 
   /// Fetch Vendor Transactions (with cache)
   Future<List<VendorTransaction>> fetchVendorTransactions(
-      int vendorId, {
-        bool forceRefresh = false,
-      }) async {
+    int vendorId, {
+    bool forceRefresh = false,
+  }) async {
     if (!forceRefresh && _transactionsCache.containsKey(vendorId)) {
       return _transactionsCache[vendorId]!;
     }
@@ -170,8 +174,6 @@ class VendorProvider with ChangeNotifier {
     return false;
   }
 
-
-
   /// ✅ Fetch unpaid invoices for a vendor (balance > 0)
   Future<List<Map<String, dynamic>>> fetchUnpaidInvoices(int vendorId) async {
     try {
@@ -180,36 +182,37 @@ class VendorProvider with ChangeNotifier {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {
-          'apikey': _anonKey,
-          'Authorization': 'Bearer $_anonKey',
-        },
+        headers: {'apikey': _anonKey, 'Authorization': 'Bearer $_anonKey'},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List;
 
         // ✅ Process unpaid invoices
-        final unpaid = data.map((p) {
-          final double total = (p['amount'] as num?)?.toDouble() ?? 0.0;
+        final unpaid = data
+            .map((p) {
+              final double total = (p['amount'] as num?)?.toDouble() ?? 0.0;
 
-          // sum paid from vendor_transactions
-          final List txns = p['vendor_transactions'] ?? [];
-          final double paid = txns.fold<double>(
-            0.0,
-                (sum, t) => sum + ((t['amount_paid'] as num?)?.toDouble() ?? 0.0),
-          );
+              // sum paid from vendor_transactions
+              final List txns = p['vendor_transactions'] ?? [];
+              final double paid = txns.fold<double>(
+                0.0,
+                (sum, t) =>
+                    sum + ((t['amount_paid'] as num?)?.toDouble() ?? 0.0),
+              );
 
-          final double balance = total - paid;
+              final double balance = total - paid;
 
-          return {
-            "purchase_id": p['purchase_id'],
-            "invoice_no": p['invoice_no'],
-            "total": total,
-            "paid": paid,
-            "balance": balance,
-          };
-        }).where((inv) => inv["balance"] > 0).toList();
+              return {
+                "purchase_id": p['purchase_id'],
+                "invoice_no": p['invoice_no'],
+                "total": total,
+                "paid": paid,
+                "balance": balance,
+              };
+            })
+            .where((inv) => inv["balance"] > 0)
+            .toList();
 
         return unpaid;
       } else {
@@ -220,5 +223,4 @@ class VendorProvider with ChangeNotifier {
     }
     return [];
   }
-
 }
