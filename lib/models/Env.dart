@@ -5,3 +5,4 @@ class Env {
       String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
     static const serviceRole = String.fromEnvironment('SUPABASE_SERVICE_ROLE',defaultValue:'');
 }
+
