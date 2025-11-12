@@ -3,13 +3,14 @@ class Variant {
   final String? id;
   final String name;
   final String sku;
+
   final double salePrice;
   final double regularPrice;
   final double weight;
   final String color;
   final double stock;
-  final double? length;
-  final double? size;
+  final String? length; // ✅ text
+  final String? size; // ✅ text
   final String? imageUrl;
   final bool? isActive;
 
@@ -29,36 +30,36 @@ class Variant {
   });
 
   factory Variant.fromJson(Map<String, dynamic> json) => Variant(
-        id: json['variant_id']?.toString(),
-        name: json['variant_name'],
-        sku: json['sku'],
-        salePrice: (json['saleprice'] ?? 0).toDouble(),
-        regularPrice: (json['regularprice'] ?? 0).toDouble(),
-        weight: (json['weight'] ?? 0).toDouble(),
-        color: json['color'] ?? '',
-        imageUrl: json['image_url'],
-        length: json['length'] != null ? (json['length'] as num).toDouble() : null,
-        size: json['size'] != null ? (json['size'] as num).toDouble() : null,
-        stock: (json['stock'] ?? 0).toDouble(),
-        isActive: json['is_Active'],
-      );
+    id: json['variant_id']?.toString(),
+    name: json['variant_name'],
+    sku: json['sku'],
+    salePrice: (json['saleprice'] ?? 0).toDouble(),
+    regularPrice: (json['regularprice'] ?? 0).toDouble(),
+    weight: (json['weight'] ?? 0).toDouble(),
+    color: json['color'] ?? '',
+    imageUrl: json['image_url'],
+    length: json['length']?.toString(),
+    size: json['size']?.toString(),
+    stock: (json['stock'] ?? 0).toDouble(),
+    isActive: json['is_Active'],
+  );
 
   Map<String, dynamic> toJson() => {
-        if (id != null) 'variant_id': id,
-        'variant_name': name,
-        'sku': sku,
-        'saleprice': salePrice,
-        'regularprice': regularPrice,
-        'weight': weight,
-        'color': color,
-        if (stock != null) 'stock': stock,
-        if (length != null) 'length': length,
-        if (size != null) 'size': size,
-        if (imageUrl != null) 'image_url': imageUrl,
-        if (isActive != null) 'is_Active': isActive,
-      };
+    if (id != null) 'variant_id': id,
+    'variant_name': name,
+    'sku': sku,
+    'saleprice': salePrice,
+    'regularprice': regularPrice,
+    'weight': weight,
+    'color': color,
+    'stock': stock,
+    if (length != null) 'length': length,
+    if (size != null) 'size': size,
+    if (imageUrl != null) 'image_url': imageUrl,
+    if (isActive != null) 'is_Active': isActive,
+  };
 
-  /// ✅ copyWith method for immutability
+  /// ✅ Corrected copyWith
   Variant copyWith({
     String? id,
     String? name,
@@ -68,8 +69,8 @@ class Variant {
     double? weight,
     String? color,
     double? stock,
-    double? length,
-    double? size,
+    String? length, // ✅ changed to String
+    String? size, // ✅ changed to String
     String? imageUrl,
     bool? isActive,
   }) {
@@ -90,15 +91,15 @@ class Variant {
   }
 }
 
-
 class Product {
   final String? id;
   String name;
   String description;
   String sku;
-  String category;
+  int? subcategoryId; // ✅ new
+  String? subcategoryName; // ✅ new
   bool hasVariant;
-  bool? isActive;  
+  bool? isActive;
 
   String? imageUrl;
   List<Variant>? variants;
@@ -108,9 +109,10 @@ class Product {
     required this.name,
     required this.description,
     required this.sku,
-   required this.category,
+    required this.subcategoryId,
+    required this.subcategoryName,
     required this.hasVariant,
-    
+
     this.imageUrl,
     this.variants,
     this.isActive,
@@ -127,7 +129,8 @@ class Product {
     double regularPrice = (json['regularprice'] ?? 0).toDouble();
     double weight = (json['weight'] ?? 0).toDouble();
 
-    if ((salePrice == 0 || regularPrice == 0|| weight ==0) && variantsList.isNotEmpty) {
+    if ((salePrice == 0 || regularPrice == 0 || weight == 0) &&
+        variantsList.isNotEmpty) {
       salePrice = variantsList.first.salePrice;
       regularPrice = variantsList.first.regularPrice;
       weight = variantsList.first.weight;
@@ -138,7 +141,8 @@ class Product {
       name: json['name'],
       description: json['description'],
       sku: json['sku'],
-      category: json['category'],
+      subcategoryId: json['subcategory_id'],
+      subcategoryName: json['subcategory_name'],
       hasVariant: json['has_variant'] ?? false,
       imageUrl: json['image_url'],
       variants: variantsList,
@@ -152,14 +156,13 @@ class Product {
       'name': name,
       'description': description,
       'sku': sku,
-      'category': category,
+      'subcategory_id': subcategoryId,
       'has_variant': hasVariant,
       if (imageUrl != null) 'image_url': imageUrl,
       if (isActive != null) 'is_Active': isActive,
     };
 
-      data['variants'] = variants?.map((v) => v.toJson()).toList() ?? [];
-  
+    data['variants'] = variants?.map((v) => v.toJson()).toList() ?? [];
 
     return data;
   }

@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:admin_dashboard_rajashree/models/Env.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 class ResetPasswordScreen extends StatefulWidget {
-  final String? email;
-  const ResetPasswordScreen({super.key, this.email});
+  final String? email; // <-- added
+  const ResetPasswordScreen({super.key, this.email}); // <-- updated
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
@@ -13,165 +11,125 @@ class ResetPasswordScreen extends StatefulWidget {
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final TextEditingController _newPwdCtrl = TextEditingController();
-  final TextEditingController _confirmNewPwdCtrl = TextEditingController();
+  final TextEditingController _confirmPwdCtrl = TextEditingController();
   bool _loading = false;
 
-  Future<void> _reset() async {
-    final newPwd = _newPwdCtrl.text.trim();
-    final confirmNewPwd = _confirmNewPwdCtrl.text.trim();
+  // ✅ Added: detect and recover Supabase session from email link
+  @override
+  void initState() {
+    super.initState();
+    _checkRecoverySession();
+  }
 
-    if (newPwd.isEmpty || confirmNewPwd.isEmpty) {
+  Future<void> _checkRecoverySession() async {
+    try {
+      // Listen for recovery email deep link (Supabase automatically triggers this)
+      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        final AuthChangeEvent event = data.event;
+        final Session? session = data.session;
+
+        if (event == AuthChangeEvent.passwordRecovery && session != null) {
+          // ✅ Session restored, user can now update password
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("🔐 Recovery session active")),
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint("Error detecting recovery session: $e");
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    final newPwd = _newPwdCtrl.text.trim();
+    final confirmPwd = _confirmPwdCtrl.text.trim();
+
+    if (newPwd.isEmpty || confirmPwd.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Enter a new password and confirm it.")),
+        const SnackBar(content: Text("Please enter both fields.")),
       );
       return;
     }
 
-    if (newPwd != confirmNewPwd) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Passwords do not match.")),
-      );
+    if (newPwd != confirmPwd) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Passwords do not match.")));
       return;
     }
 
     setState(() => _loading = true);
 
     try {
-      final supabaseUrl = Env.supabaseUrl!;
-      final anonKey = Env.anonKey!;
+      final supabase = Supabase.instance.client;
 
-      final response = await http.patch(
-        Uri.parse('$supabaseUrl/rest/v1/users?email=eq.${widget.email}'),
-        headers: {
-          'apikey': anonKey,
-          'Authorization': 'Bearer $anonKey',
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation',
-        },
-        body: jsonEncode({'password': newPwd}),
-      );
+      // ✅ This works only when recovery session is active
+      await supabase.auth.updateUser(UserAttributes(password: newPwd));
 
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Password reset successful")),
-        );
-        Navigator.popUntil(context, (r) => r.isFirst); // back to login
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Failed: ${response.body}")),
-        );
-      }
-    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Error: $e")),
+        const SnackBar(content: Text("✅ Password reset successful.")),
       );
+
+      // ✅ Clear session after password reset
+      await supabase.auth.signOut();
+
+      Navigator.popUntil(context, (r) => r.isFirst);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Error: $e")));
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final args =
-    ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final email = args?['email'] ?? widget.email ?? "";
-
-    final isWide = MediaQuery.of(context).size.width > 600;
-
     return Scaffold(
-      body: Container(
-        color: Theme.of(context).colorScheme.surface,
-        alignment: Alignment.center,
-        child: SingleChildScrollView(
+      body: Center(
+        child: Card(
+          margin: const EdgeInsets.all(24),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: isWide ? 0 : 20),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Card(
-                  elevation: 8,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 22),
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(16),
-                          ),
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF7E57C2), Color(0xFF4A90E2)],
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Image.asset('assets/images/logo.png',
-                                height: 56, width: 56, fit: BoxFit.contain),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Reset Password',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium!
-                                  .copyWith(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (email.isNotEmpty)
-                              Text("Resetting password for: $email"),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _newPwdCtrl,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                labelText: 'New Password',
-                                prefixIcon: Icon(Icons.lock),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _confirmNewPwdCtrl,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Confirm New Password',
-                                prefixIcon: Icon(Icons.lock),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 48,
-                              child: FilledButton.tonalIcon(
-                                icon: _loading
-                                    ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                                    : const Icon(Icons.refresh),
-                                label: const Text('Reset'),
-                                onPressed: _loading ? null : _reset,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Reset Password", style: TextStyle(fontSize: 20)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _newPwdCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: "New Password",
+                    prefixIcon: Icon(Icons.lock),
                   ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _confirmPwdCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: "Confirm Password",
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    icon: _loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
+                    label: const Text("Reset Password"),
+                    onPressed: _loading ? null : _resetPassword,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
