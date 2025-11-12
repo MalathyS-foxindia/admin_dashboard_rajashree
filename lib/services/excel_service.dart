@@ -9,7 +9,6 @@ import 'package:admin_dashboard_rajashree/models/purchase_model.dart';
 
 import 'package:admin_dashboard_rajashree/models/products_model.dart';
 
-
 class ExcelService {
   // ================= ORDERS EXPORT =================
   static Future<bool> exportToExcel(List<Order> selectedOrders) async {
@@ -19,7 +18,6 @@ class ExcelService {
 
       // Header row
       sheetObject.appendRow([
-
         TextCellValue('Order ID'),
         TextCellValue('Customer Name'),
         TextCellValue('Mobile Number'),
@@ -30,7 +28,6 @@ class ExcelService {
         TextCellValue('Total Amount'),
         TextCellValue('Payment Method'),
         TextCellValue('Order Date'),
-
       ]);
 
       // Data rows
@@ -69,7 +66,9 @@ class ExcelService {
 
   // ================= SKU SUMMARY EXPORT =================
   static Future<bool> exportSkuSummaryToExcel(
-      List<Map<String, dynamic>> skuSummary, DateTime date) async {
+    List<Map<String, dynamic>> skuSummary,
+    DateTime date,
+  ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['SKU Summary'];
@@ -132,7 +131,8 @@ class ExcelService {
           TextCellValue(purchase.invoiceNo),
           TextCellValue(purchase.vendordetails.name),
           TextCellValue(
-              "${purchase.invoiceDate?.day}-${purchase.invoiceDate?.month}-${purchase.invoiceDate?.year}"),
+            "${purchase.invoiceDate?.day}-${purchase.invoiceDate?.month}-${purchase.invoiceDate?.year}",
+          ),
           DoubleCellValue(purchase.totalAmount),
           TextCellValue(purchase.items.length.toString()),
           TextCellValue(purchase.invoiceImage ?? "-"),
@@ -155,60 +155,59 @@ class ExcelService {
     }
   }
 
-static Future<bool> exportProductsToExcel(List<Product> products) async {
-  try {
-    final excel = Excel.createExcel();
-    final sheet = excel['Products'];
+  static Future<bool> exportProductsToExcel(List<Product> products) async {
+    try {
+      final excel = Excel.createExcel();
+      final sheet = excel['Products'];
 
-    sheet.appendRow([
-      TextCellValue('Product Name'),
-      TextCellValue('Product SKU'),
-      TextCellValue('Category'),
-      TextCellValue('Variant Name'),
-      TextCellValue('Variant SKU'),
-      TextCellValue('Regular Price'),
-      TextCellValue('Sale Price'),
-      TextCellValue('Weight'),
-      TextCellValue('Stock'),
-      TextCellValue('Variant Active'),
-      TextCellValue('Product Active'),
-    ]);
+      sheet.appendRow([
+        TextCellValue('Product Name'),
+        TextCellValue('Product SKU'),
+        TextCellValue('Category'),
+        TextCellValue('Variant Name'),
+        TextCellValue('Variant SKU'),
+        TextCellValue('Regular Price'),
+        TextCellValue('Sale Price'),
+        TextCellValue('Weight'),
+        TextCellValue('Stock'),
+        TextCellValue('Variant Active'),
+        TextCellValue('Product Active'),
+      ]);
 
-    for (final product in products) {
-      if (product.variants != null && product.variants!.isNotEmpty) {
-        for (final variant in product.variants!) {
-          sheet.appendRow([
-            TextCellValue(product.name ?? ''),
-            TextCellValue(product.sku ?? ''),
-            TextCellValue(product.category ?? ''),
-            TextCellValue(variant.name ?? ''),
-            TextCellValue(variant.sku ?? ''),
-            TextCellValue(variant.regularPrice?.toString() ?? ''),
-            TextCellValue(variant.salePrice?.toString() ?? ''),
-            TextCellValue(variant.weight?.toString() ?? ''),
-            TextCellValue(variant.stock?.toString() ?? ''),
-            TextCellValue((variant.isActive ?? false) ? '✅' : '❌'),
-            TextCellValue((product.isActive ?? false) ? '✅' : '❌'),
-          ]);
+      for (final product in products) {
+        if (product.variants != null && product.variants!.isNotEmpty) {
+          for (final variant in product.variants!) {
+            sheet.appendRow([
+              TextCellValue(product.name ?? ''),
+              TextCellValue(product.sku ?? ''),
+              TextCellValue(product.subcategoryName ?? ''),
+              TextCellValue(variant.name ?? ''),
+              TextCellValue(variant.sku ?? ''),
+              TextCellValue(variant.regularPrice?.toString() ?? ''),
+              TextCellValue(variant.salePrice?.toString() ?? ''),
+              TextCellValue(variant.weight?.toString() ?? ''),
+              TextCellValue(variant.stock?.toString() ?? ''),
+              TextCellValue((variant.isActive ?? false) ? '✅' : '❌'),
+              TextCellValue((product.isActive ?? false) ? '✅' : '❌'),
+            ]);
+          }
         }
-      } 
-    }
+      }
 
-    final bytes = excel.save();
-    if (bytes != null) {
-      await FileSaver.instance.saveFile(
-        name: 'products_export.xlsx',
-        bytes: Uint8List.fromList(bytes),
-        mimeType: MimeType.microsoftExcel,
-      );
-      return true;
-    }
+      final bytes = excel.save();
+      if (bytes != null) {
+        await FileSaver.instance.saveFile(
+          name: 'products_export.xlsx',
+          bytes: Uint8List.fromList(bytes),
+          mimeType: MimeType.microsoftExcel,
+        );
+        return true;
+      }
 
-    return false;
-  } catch (e) {
-    debugPrint("Error exporting to Excel: $e");
-    return false;
+      return false;
+    } catch (e) {
+      debugPrint("Error exporting to Excel: $e");
+      return false;
+    }
   }
 }
-}
-
