@@ -21,7 +21,6 @@ class ExcelService {
 
       // Header row
       sheetObject.appendRow([
-
         TextCellValue('Order ID'),
         TextCellValue('Customer Name'),
         TextCellValue('Mobile Number'),
@@ -32,7 +31,6 @@ class ExcelService {
         TextCellValue('Total Amount'),
         TextCellValue('Payment Method'),
         TextCellValue('Order Date'),
-
       ]);
 
       // Data rows
@@ -71,7 +69,9 @@ class ExcelService {
 
   // ================= SKU SUMMARY EXPORT =================
   static Future<bool> exportSkuSummaryToExcel(
-      List<Map<String, dynamic>> skuSummary, DateTime date) async {
+    List<Map<String, dynamic>> skuSummary,
+    DateTime date,
+  ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['SKU Summary'];
@@ -134,7 +134,8 @@ class ExcelService {
           TextCellValue(purchase.invoiceNo),
           TextCellValue(purchase.vendordetails.name),
           TextCellValue(
-              "${purchase.invoiceDate?.day}-${purchase.invoiceDate?.month}-${purchase.invoiceDate?.year}"),
+            "${purchase.invoiceDate?.day}-${purchase.invoiceDate?.month}-${purchase.invoiceDate?.year}",
+          ),
           DoubleCellValue(purchase.totalAmount),
           TextCellValue(purchase.items.length.toString()),
           TextCellValue(purchase.invoiceImage ?? "-"),
@@ -249,24 +250,22 @@ static Future<bool> exportProductsToExcel(List<Product> products) async {
             TextCellValue((product.isActive ?? false) ? '✅' : '❌'),
           ]);
         }
-      } 
-    }
+      }
 
-    final bytes = excel.save();
-    if (bytes != null) {
-      await FileSaver.instance.saveFile(
-        name: 'products_export.xlsx',
-        bytes: Uint8List.fromList(bytes),
-        mimeType: MimeType.microsoftExcel,
-      );
-      return true;
-    }
+      final bytes = excel.save();
+      if (bytes != null) {
+        await FileSaver.instance.saveFile(
+          name: 'products_export.xlsx',
+          bytes: Uint8List.fromList(bytes),
+          mimeType: MimeType.microsoftExcel,
+        );
+        return true;
+      }
 
-    return false;
-  } catch (e) {
-    debugPrint("Error exporting to Excel: $e");
-    return false;
+      return false;
+    } catch (e) {
+      debugPrint("Error exporting to Excel: $e");
+      return false;
+    }
   }
 }
-}
-

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ Added import for Supabase
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -9,21 +10,42 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final TextEditingController _emailCtrl = TextEditingController();
+  bool _loading = false; // ✅ Added loading state
 
-  void _goToResetScreen() {
+  // ✅ Updated: Send reset email using Supabase Auth
+  Future<void> _sendResetLink() async {
     final email = _emailCtrl.text.trim();
 
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter email")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please enter your email.")));
       return;
     }
 
-    debugPrint("📩 ForgotPassword submitted: $email");
+    setState(() => _loading = true);
 
-    Navigator.pushNamed(context, '/reset-password', arguments: {'email': email});
+    try {
+      final supabase = Supabase.instance.client;
 
+      // ✅ Sends password reset email
+      await supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo:
+            'https://your-app-url.com/reset', // ✅ Replace with your hosted app or deep link URL
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("📧 Password reset link sent to $email")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Error: $e")));
+    } finally {
+      setState(() => _loading = false);
+    }
   }
 
   @override
@@ -60,14 +82,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                         child: Column(
                           children: [
-                            Image.asset('assets/images/logo.png',
-                                height: 56, width: 56, fit: BoxFit.contain),
+                            Image.asset(
+                              'assets/images/logo.png',
+                              height: 56,
+                              width: 56,
+                              fit: BoxFit.contain,
+                            ),
                             const SizedBox(height: 10),
                             Text(
                               'Forgot Password',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium!
+                              style: Theme.of(context).textTheme.titleMedium!
                                   .copyWith(color: Colors.white),
                             ),
                           ],
@@ -89,14 +113,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               width: double.infinity,
                               height: 48,
                               child: FilledButton.tonalIcon(
-                                icon: const Icon(Icons.navigate_next),
-                                label: const Text('Continue'),
-                                onPressed: _goToResetScreen,
+                                // ✅ Updated button to trigger reset email instead of navigation
+                                icon: _loading
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.send),
+                                label: const Text('Send Reset Link'),
+                                onPressed: _loading
+                                    ? null
+                                    : _sendResetLink, // ✅ Updated onPressed
                               ),
                             ),
                           ],
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),

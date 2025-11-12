@@ -22,10 +22,10 @@ class QueriesProvider with ChangeNotifier {
 
     try {
       final url = '$_supabaseUrl/rest/v1/queries?select=*';
-      final res = await http.get(Uri.parse(url), headers: {
-        'apikey': _anonKey,
-        'Authorization': 'Bearer $_anonKey',
-      });
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {'apikey': _anonKey, 'Authorization': 'Bearer $_anonKey'},
+      );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as List;
@@ -43,7 +43,10 @@ class QueriesProvider with ChangeNotifier {
 
   /// 🔹 Update query status with SnackBar feedback
   Future<void> updateStatus(
-      BuildContext context, int queryId, String newStatus) async {
+    BuildContext context,
+    int queryId,
+    String newStatus,
+  ) async {
     final url = '$_supabaseUrl/rest/v1/queries?query_id=eq.$queryId';
 
     try {
@@ -91,7 +94,10 @@ class QueriesProvider with ChangeNotifier {
 
   /// 🔹 Update query remarks with SnackBar feedback
   Future<void> updateRemarks(
-      BuildContext context, int queryId, String remark) async {
+    BuildContext context,
+    int queryId,
+    String remark,
+  ) async {
     final url = '$_supabaseUrl/rest/v1/queries?query_id=eq.$queryId';
 
     try {

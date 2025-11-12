@@ -27,23 +27,22 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
   String _trackingUrl = "";
 
   /// Detect provider + tracking URL from tracking number
-  void _detectProviderFromTracking(String trackingNumber) {
-    String? provider;
+ void _detectProviderFromTracking(String trackingNumber) {
+  final RegExp isAlphaOnly = RegExp(r'^[A-Za-z]+$');
+  String? provider;
 
-    if (trackingNumber.startsWith("C")) {
-      provider = "DTDC";
-    } else if (trackingNumber.startsWith("F")) {
-      provider = "Franch Express";
-    } else if (trackingNumber.endsWith("IN")) {
-      provider = "India Post";
-    }
-
-    setState(() {
-      _selectedProvider = provider;
-    });
-
-   
+  if (trackingNumber.startsWith("C")) {
+    provider = "DTDC";
+  } else if (!isAlphaOnly.hasMatch(trackingNumber)) {
+    provider = "Franch Express";
+  } else if (trackingNumber.endsWith("IN")) {
+    provider = "India Post";
   }
+
+  setState(() {
+    _selectedProvider = provider;
+  });
+}
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -114,13 +113,19 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                     border: OutlineInputBorder(),
                   ),
                   onChanged: (value) {
-                    // Auto-detect provider while typing/scanning
+                    // Works for manual typing
                     _detectProviderFromTracking(value);
                   },
                   onFieldSubmitted: (value) {
-                    // Barcode scanner sends Enter → trigger submit
-                    _submit();
+                    // Works for barcode scanners (Enter key)
+                    final cleaned = value.trim();
+                    _trackingNumberController.text = cleaned;
+                    _detectProviderFromTracking(cleaned);
+
+                    // Delay a bit so setState updates before submit
+                    Future.delayed(const Duration(milliseconds: 100), _submit);
                   },
+                 
                   validator: (value) =>
                       value == null || value.isEmpty ? "Tracking ID is required" : null,
                 ),
@@ -148,17 +153,7 @@ class _AddShipmentScreenState extends State<AddShipmentScreen> {
                   style: const TextStyle(color: Colors.blue),
                 ),
               ],
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Spacer(),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.bug_report),
-                    label: const Text("Mock Data"),
-                    onPressed: _fillMockData,
-                  ),
-                ],
-              ),
+            
             ],
           ),
         ),

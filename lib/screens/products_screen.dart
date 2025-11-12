@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/products_model.dart';
 import '../providers/product_provider.dart';
 import '../widgets/product_form.dart';
+import '../widgets/review_analysis_widget.dart';
 import 'package:admin_dashboard_rajashree/services/excel_service.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -15,8 +16,8 @@ class ProductsScreen extends StatefulWidget {
 
 class _ProductsScreenState extends State<ProductsScreen> {
   String _searchQuery = '';
-  String? _selectedCategory;
-
+  int? _selectedCategory;
+  int? _selectedSubcategoryId;
   final List<int> _pageSizeOptions = [10, 25, 50, 100];
 
   /// Track selected product IDs
@@ -28,38 +29,49 @@ class _ProductsScreenState extends State<ProductsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ProductProvider>(context, listen: false)
-          .fetchProducts(reset: true);
+      final provider = Provider.of<ProductProvider>(context, listen: false);
+      provider.fetchProducts(reset: true);
+      provider.fetchCategoriesWithSubcategories();
     });
   }
-void _showImageDialog(String imageUrl) {
-  showDialog(
-    context: context,
-    builder: (ctx) {
-      return Dialog(
-        insetPadding: const EdgeInsets.all(16),
-        child: Stack(
-          alignment: Alignment.topRight,
-          children: [
-            InteractiveViewer(
-              panEnabled: true,
-              minScale: 0.5,
-              maxScale: 4,
-              child: Image.network(imageUrl),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: () => Navigator.of(ctx).pop(),
-              style: ButtonStyle(
-                backgroundColor: MaterialStateProperty.all(Colors.black54),
+
+  void _showImageDialog(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: Stack(
+            alignment: Alignment.topRight,
+            children: [
+              InteractiveViewer(
+                panEnabled: true,
+                minScale: 0.5,
+                maxScale: 4,
+                child: Image.network(
+                  imageUrl,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(
+                      Icons.broken_image,
+                      size: 100,
+                      color: Colors.grey,
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: ButtonStyle(
+                  backgroundColor: MaterialStateProperty.all(Colors.black54),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   Future<void> _openAddDialog() async {
     final ok = await showDialog<bool>(
@@ -67,12 +79,13 @@ void _showImageDialog(String imageUrl) {
       builder: (_) => const ProductForm(),
     );
     if (ok == true && mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Product created')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Product created')));
       Provider.of<ProductProvider>(context, listen: false).fetchProducts(
         reset: true,
         search: _searchQuery,
-        category: _selectedCategory,
+        category_id: _selectedSubcategoryId,
       );
     }
   }
@@ -83,12 +96,13 @@ void _showImageDialog(String imageUrl) {
       builder: (_) => ProductForm(initial: p),
     );
     if (ok == true && mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Product updated')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Product updated')));
       Provider.of<ProductProvider>(context, listen: false).fetchProducts(
         reset: true,
         search: _searchQuery,
-        category: _selectedCategory,
+        category_id: _selectedSubcategoryId,
       );
     }
   }
@@ -113,23 +127,37 @@ void _showImageDialog(String imageUrl) {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (p.imageUrl != null)
+                if (p.imageUrl != null && p.imageUrl!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Image.network(p.imageUrl!, height: 100),
+                    child: Image.network(
+                      p.imageUrl!,
+                      height: 100,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.broken_image,
+                          size: 80,
+                          color: Colors.grey,
+                        );
+                      },
+                    ),
                   ),
                 Row(
                   children: [
-                    const Text('SKU: ',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      'SKU: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Text(p.sku),
                   ],
                 ),
                 Row(
                   children: [
-                    const Text('Category: ',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(p.category),
+                    const Text(
+                      'Category: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(p.subcategoryName ?? "-"),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -144,42 +172,50 @@ void _showImageDialog(String imageUrl) {
                       const SizedBox(height: 6),
                       ...p.variants!.map((v) {
                         final lowStock = (v.stock ?? 0) < 10;
-                        return Row(
+                        return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("• ", style: TextStyle(fontSize: 18)),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(child: Text(v.name)),
-                                      Icon(
-                                        v.isActive == true
-                                            ? Icons.check_circle
-                                            : Icons.cancel,
-                                        color: v.isActive == true
-                                            ? Colors.green
-                                            : Colors.red,
+                            Row(
+                              children: [
+                                Expanded(child: Text(v.name)),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.star,
+                                    color: Colors.amber,
+                                  ),
+                                  tooltip: 'View Reviews',
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => ReviewAnalysisWidget(
+                                          variantId: v.id!,
+                                          variantName: v.name,
+                                        ),
                                       ),
-                                    ],
-                                  ),
-                                  Text(
-                                    'SKU: ${v.sku}, Regular: ${v.regularPrice}, Sale: ${v.salePrice}, Weight: ${v.weight}',
-                                  ),
-                                  Text(
-                                    'Stock: ${v.stock?.toStringAsFixed(0) ?? '0'}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color:
-                                          lowStock ? Colors.red : Colors.black,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                ],
+                                    );
+                                  },
+                                ),
+                                Icon(
+                                  v.isActive == true
+                                      ? Icons.check_circle
+                                      : Icons.cancel,
+                                  color: v.isActive == true
+                                      ? Colors.green
+                                      : Colors.red,
+                                ),
+                              ],
+                            ),
+                            Text(
+                              'SKU: ${v.sku}, Regular: ${v.regularPrice}, Sale: ${v.salePrice}, Weight: ${v.weight}',
+                            ),
+                            Text(
+                              'Stock: ${v.stock?.toStringAsFixed(0) ?? '0'}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: lowStock ? Colors.red : Colors.black,
                               ),
                             ),
+                            const SizedBox(height: 6),
                           ],
                         );
                       }),
@@ -207,10 +243,23 @@ void _showImageDialog(String imageUrl) {
   }
 
   Widget _buildFilterBar(ProductProvider provider) {
+    final categories = provider.categoriesWithSubs;
+    print("In Product SScreen: $categories");
+
+    final selectedCategory = categories.firstWhere(
+      (c) => c['category_id'] == _selectedCategory,
+      orElse: () => {},
+    );
+
+    final subcategories = selectedCategory.isNotEmpty
+        ? (selectedCategory['subcategories'] as List)
+        : [];
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Row(
         children: [
+          // 🔹 Search box
           Expanded(
             child: TextField(
               decoration: const InputDecoration(
@@ -223,53 +272,81 @@ void _showImageDialog(String imageUrl) {
                 provider.fetchProducts(
                   reset: true,
                   search: val,
-                  category: _selectedCategory,
+                  category_id: _selectedSubcategoryId,
                 );
               },
             ),
           ),
           const SizedBox(width: 8),
-          DropdownButton<String?>(
-            hint: const Text('Category'),
+
+          // 🔹 Category dropdown
+          DropdownButton<int?>(
+            hint: const Text('Select Category'),
             value: _selectedCategory,
             items: [
-              const DropdownMenuItem<String?>(
-                  value: null, child: Text('All')),
-              ...provider.categories
-                  .map((cat) =>
-                      DropdownMenuItem<String?>(value: cat, child: Text(cat)))
-                  .toList(),
+              const DropdownMenuItem<int?>(value: null, child: Text('All')),
+              for (final cat in categories)
+                DropdownMenuItem<int?>(
+                  value: cat['category_id'] as int?,
+                  child: Text(cat['category_name'] ?? '-'),
+                ),
             ],
             onChanged: (val) {
-              setState(() => _selectedCategory = val);
+              setState(() {
+                _selectedCategory = val;
+                _selectedSubcategoryId = null;
+              });
+            },
+          ),
+          const SizedBox(width: 8),
+
+          // 🔹 Subcategory dropdown
+          DropdownButton<int?>(
+            hint: const Text('Select Subcategory'),
+            value: _selectedSubcategoryId,
+            items: [
+              const DropdownMenuItem<int?>(value: null, child: Text('All')),
+              for (final sub in subcategories)
+                DropdownMenuItem<int?>(
+                  value: sub['subcategory_id'] as int?,
+                  child: Text(sub['name'] ?? '-'),
+                ),
+            ],
+            onChanged: (val) {
+              setState(() => _selectedSubcategoryId = val);
               provider.fetchProducts(
                 reset: true,
                 search: _searchQuery,
-                category: val,
+                category_id: val,
               );
             },
           ),
           const Spacer(),
+
+          // 🔹 Export button
           ElevatedButton.icon(
-  onPressed: _selectedProductIds.isEmpty
-      ? null
-      : () async {
-          final provider = context.read<ProductProvider>();
-          final selected = provider.items
-              .where((p) => _selectedProductIds.contains(p.id))
-              .toList();
+            onPressed: _selectedProductIds.isEmpty
+                ? null
+                : () async {
+                    final selected = provider.items
+                        .where((p) => _selectedProductIds.contains(p.id))
+                        .toList();
 
-          await ExcelService.exportProductsToExcel(selected);
+                    await ExcelService.exportProductsToExcel(selected);
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('✅ Exported ${selected.length} products')),
-            );
-          }
-        },
-  icon: const Icon(Icons.download),
-  label: const Text("Export"),
-),
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '✅ Exported ${selected.length} products',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+            icon: const Icon(Icons.download),
+            label: const Text("Export"),
+          ),
         ],
       ),
     );
@@ -298,7 +375,7 @@ void _showImageDialog(String imageUrl) {
                   onRefresh: () => provider.fetchProducts(
                     reset: true,
                     search: _searchQuery,
-                    category: _selectedCategory,
+                    category_id: _selectedCategory,
                   ),
                   child: provider.isLoading && provider.items.isEmpty
                       ? const Center(child: CircularProgressIndicator())
@@ -316,9 +393,11 @@ void _showImageDialog(String imageUrl) {
                                         _selectAll = val ?? false;
                                         _selectedProductIds.clear();
                                         if (_selectAll) {
-                                          _selectedProductIds.addAll(provider
-                                              .items
-                                              .map((p) => p.id ?? ''));
+                                          _selectedProductIds.addAll(
+                                            provider.items.map(
+                                              (p) => p.id ?? '',
+                                            ),
+                                          );
                                         }
                                       });
                                     },
@@ -333,8 +412,9 @@ void _showImageDialog(String imageUrl) {
                               ],
                               rows: provider.items.map((p) {
                                 final productActive = _isProductActive(p);
-                                final isSelected =
-                                    _selectedProductIds.contains(p.id);
+                                final isSelected = _selectedProductIds.contains(
+                                  p.id,
+                                );
 
                                 return DataRow(
                                   selected: isSelected,
@@ -345,11 +425,13 @@ void _showImageDialog(String imageUrl) {
                                         onChanged: (val) {
                                           setState(() {
                                             if (val == true) {
-                                              _selectedProductIds
-                                                  .add(p.id ?? '');
+                                              _selectedProductIds.add(
+                                                p.id ?? '',
+                                              );
                                             } else {
-                                              _selectedProductIds
-                                                  .remove(p.id ?? '');
+                                              _selectedProductIds.remove(
+                                                p.id ?? '',
+                                              );
                                               _selectAll = false;
                                             }
                                           });
@@ -357,19 +439,35 @@ void _showImageDialog(String imageUrl) {
                                       ),
                                     ),
                                     DataCell(
-  p.imageUrl != null
-      ? GestureDetector(
-          onTap: () => _showImageDialog(p.imageUrl!),
-          child: Image.network(
-            p.imageUrl!,
-            width: 50,
-            height: 50,
-            fit: BoxFit.cover,
-          ),
-        )
-      : const Icon(Icons.image_not_supported, size: 40),
-),
-
+                                      (p.imageUrl != null &&
+                                              p.imageUrl!.isNotEmpty)
+                                          ? GestureDetector(
+                                              onTap: () =>
+                                                  _showImageDialog(p.imageUrl!),
+                                              child: Image.network(
+                                                p.imageUrl!,
+                                                width: 50,
+                                                height: 50,
+                                                fit: BoxFit.cover,
+                                                errorBuilder:
+                                                    (
+                                                      context,
+                                                      error,
+                                                      stackTrace,
+                                                    ) {
+                                                      return const Icon(
+                                                        Icons.broken_image,
+                                                        size: 40,
+                                                        color: Colors.grey,
+                                                      );
+                                                    },
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.image_not_supported,
+                                              size: 40,
+                                            ),
+                                    ),
                                     DataCell(Text(p.name)),
                                     DataCell(
                                       InkWell(
@@ -384,7 +482,7 @@ void _showImageDialog(String imageUrl) {
                                         ),
                                       ),
                                     ),
-                                    DataCell(Text(p.category)),
+                                    DataCell(Text(p.subcategoryName ?? '-')),
                                     DataCell(
                                       Icon(
                                         productActive
@@ -409,6 +507,7 @@ void _showImageDialog(String imageUrl) {
                         ),
                 ),
               ),
+
               // ✅ Pagination footer
               Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -419,19 +518,21 @@ void _showImageDialog(String imageUrl) {
                       icon: const Icon(Icons.chevron_left),
                       onPressed: provider.currentPage > 1 && !provider.isLoading
                           ? () => provider.previousPage(
-                                search: _searchQuery,
-                                category: _selectedCategory,
-                              )
+                              search: _searchQuery,
+                              category: _selectedCategory,
+                            )
                           : null,
                     ),
-                    Text('Page ${provider.currentPage} of ${provider.totalPages}'),
+                    Text(
+                      'Page ${provider.currentPage} of ${provider.totalPages}',
+                    ),
                     IconButton(
                       icon: const Icon(Icons.chevron_right),
                       onPressed: provider.hasMore && !provider.isLoading
                           ? () => provider.nextPage(
-                                search: _searchQuery,
-                                category: _selectedCategory,
-                              )
+                              search: _searchQuery,
+                              category: _selectedCategory,
+                            )
                           : null,
                     ),
                     const SizedBox(width: 16),
@@ -440,8 +541,10 @@ void _showImageDialog(String imageUrl) {
                     DropdownButton<int>(
                       value: provider.limit,
                       items: _pageSizeOptions
-                          .map((s) =>
-                              DropdownMenuItem(value: s, child: Text('$s')))
+                          .map(
+                            (s) =>
+                                DropdownMenuItem(value: s, child: Text('$s')),
+                          )
                           .toList(),
                       onChanged: (v) {
                         if (v != null) {

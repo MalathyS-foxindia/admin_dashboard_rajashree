@@ -75,9 +75,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('❌ Error: $e')));
     } finally {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -158,20 +158,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Card(
                   elevation: 8,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(18),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Image.asset('assets/images/logo.png',
-                            height: 56, width: 56, fit: BoxFit.contain),
+                        Image.asset(
+                          'assets/images/logo.png',
+                          height: 56,
+                          width: 56,
+                          fit: BoxFit.contain,
+                        ),
                         const SizedBox(height: 10),
                         Text(
                           'Rajashree Fashion Admin',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium!
+                          style: Theme.of(context).textTheme.titleMedium!
                               .copyWith(color: Colors.black87),
                         ),
                         const SizedBox(height: 18),
@@ -229,8 +232,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (_) =>
-                                  const ForgotPasswordScreen()),
+                                builder: (_) => const ForgotPasswordScreen(),
+                              ),
                             );
                           },
                           child: const Text("Forgot Password?"),
