@@ -317,14 +317,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
         allSuccess = false;
         continue;
       }
+
       if (jsonData['order_status'] != 'failed') {
         final invoiceData = await InvoiceService.generateInvoiceFromJson(
           jsonData,
         );
+
+        // ✅ Prevents the type mismatch error
+        if (invoiceData == null) {
+          allSuccess = false;
+          continue;
+        }
+
         final success = await orderProvider.uploadInvoiceToSupabaseStorage(
           invoiceData,
         );
-
         if (!success) allSuccess = false;
       }
     }
