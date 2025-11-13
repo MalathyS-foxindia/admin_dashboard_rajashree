@@ -283,7 +283,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
         .where((order) => _selectedOrderIds.contains(order.orderId))
         .toList();
 
-    final success = await ExcelService.exportToExcel(selectedOrders);
+    final success = await ExcelService.exportToExcel(
+      selectedOrders,
+      orderProvider,
+    );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
