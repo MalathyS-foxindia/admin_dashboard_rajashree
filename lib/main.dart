@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:admin_dashboard_rajashree/providers/returns_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -89,6 +90,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => ComboProvider()),
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
         ChangeNotifierProvider(create: (_) => QueriesProvider()),
+        ChangeNotifierProvider(create: (_) => ReturnsProvider()),
       ],
       child: MaterialApp(
         title: 'Rajashree Fashions Admin',

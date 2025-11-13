@@ -215,12 +215,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: FilledButton.tonalIcon(
                             icon: _loading
                                 ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2),
+                            )
                                 : const Icon(Icons.login),
                             label: const Text('Login'),
                             onPressed: _loading ? null : _login,

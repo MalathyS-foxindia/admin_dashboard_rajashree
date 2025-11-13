@@ -283,7 +283,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
         .where((order) => _selectedOrderIds.contains(order.orderId))
         .toList();
 
-    final success = await ExcelService.exportToExcel(selectedOrders);
+    final success = await ExcelService.exportToExcel(
+      selectedOrders,
+      orderProvider,
+    );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -317,14 +320,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
         allSuccess = false;
         continue;
       }
+
       if (jsonData['order_status'] != 'failed') {
         final invoiceData = await InvoiceService.generateInvoiceFromJson(
           jsonData,
         );
+
+        // ✅ Prevents the type mismatch error
+        if (invoiceData == null) {
+          allSuccess = false;
+          continue;
+        }
+
         final success = await orderProvider.uploadInvoiceToSupabaseStorage(
           invoiceData,
         );
-
         if (!success) allSuccess = false;
       }
     }
