@@ -34,9 +34,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
   bool _isExporting = false;
   bool _showShipmentPage = false;
 
-  String? _selectedFilterCategory;
-  String? _selectedFilterValue;
-  DateTime? _selectedFilterDate;
+  // ---------- NEW multi-select filter state ----------
+  List<String> _selectedStatuses = [];
+  List<String> _selectedSources = [];
+  DateTime? _selectedDateFilter;
+  // --------------------------------------------------
 
   DateTime _selectedDate = DateTime.now();
   List<Map<String, dynamic>> _skuSummary = [];
@@ -224,40 +226,41 @@ class _OrdersScreenState extends State<OrdersScreen> {
     });
   }
 
+  // ----------------- UPDATED FILTERING (supports multi-select) -----------------
   List<Order> _applyFilter(List<Order> all) {
     return all.where((order) {
       final customer = order.customer;
 
       final matchesSearch =
-          (customer?.mobileNumber?.contains(searchQuery) ?? false) ||
-          (customer?.address?.toLowerCase().contains(searchQuery) ?? false) ||
-          (customer?.state?.toLowerCase().contains(searchQuery) ?? false) ||
+          (customer?.fullName.toLowerCase().contains(searchQuery) ?? false) ||
+          (customer?.mobileNumber.contains(searchQuery) ?? false) ||
+          (order.shippingAddress.toLowerCase().contains(searchQuery)) ||
+          (order.shippingState.toLowerCase().contains(searchQuery)) ||
           order.source.toLowerCase().contains(searchQuery) ||
           order.orderId.toLowerCase().contains(searchQuery);
 
-      bool matchesFilter = true;
+      // MULTI SELECT STATUS
+      final matchesStatus = _selectedStatuses.isEmpty
+          ? true
+          : _selectedStatuses.contains(order.orderStatus);
 
-      if (_selectedFilterCategory != null) {
-        switch (_selectedFilterCategory) {
-          case "Status":
-            matchesFilter = order.orderStatus == _selectedFilterValue;
-            break;
-          case "Source":
-            matchesFilter = order.source == _selectedFilterValue;
-            break;
-          case "Date":
-            if (_selectedFilterDate != null) {
-              matchesFilter =
-                  order.orderDate ==
-                  _selectedFilterDate!.toLocal().toString().split(' ')[0];
-            }
-            break;
-        }
-      }
+      // MULTI SELECT SOURCE
+      final matchesSource = _selectedSources.isEmpty
+          ? true
+          : _selectedSources.contains(order.source);
 
-      return matchesSearch && matchesFilter;
+      // SINGLE SELECT DATE
+      final matchesDate = _selectedDateFilter == null
+          ? true
+          : (order.createdAt != null &&
+                order.createdAt!.year == _selectedDateFilter!.year &&
+                order.createdAt!.month == _selectedDateFilter!.month &&
+                order.createdAt!.day == _selectedDateFilter!.day);
+
+      return matchesSearch && matchesStatus && matchesSource && matchesDate;
     }).toList();
   }
+  // -----------------------------------------------------------------------------
 
   List<Order> _pagedOrders(List<Order> allFiltered) {
     final start = _page * _pageSize;
@@ -421,6 +424,72 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
+  // ----------------- MULTI SELECT HELPER -----------------
+  Future<List<String>> _showMultiSelect(
+    List<String> options,
+    List<String> selectedValues,
+    String title,
+  ) async {
+    final tempSelected = [...selectedValues];
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Wrap(
+                    spacing: 12,
+                    children: options.map((opt) {
+                      final isSelected = tempSelected.contains(opt);
+                      return FilterChip(
+                        label: Text(opt),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              tempSelected.add(opt);
+                            } else {
+                              tempSelected.remove(opt);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Apply"),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    return tempSelected;
+  }
+  // ------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     final orderProvider = Provider.of<OrderProvider>(context);
@@ -473,88 +542,132 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ),
                       ),
 
-                      // 🔹 Filter Dropdowns (Category + Value)
-                      DropdownButton<String>(
-                        hint: const Text("Choose Filter"),
-                        value: _selectedFilterCategory,
-                        items: _filterOptions.keys
-                            .map(
-                              (cat) => DropdownMenuItem(
-                                value: cat,
-                                child: Text(cat),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) {
-                          setState(() {
-                            _selectedFilterCategory = v;
-                            _selectedFilterValue = null;
-                            _selectedFilterDate = null;
-                            _page = 0;
-                          });
-                        },
-                      ),
+                      // ---------------- NEW MULTI-SELECT FILTER UI ----------------
 
-                      if (_selectedFilterCategory != null)
-                        _selectedFilterCategory == "Date"
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  TextButton.icon(
-                                    icon: const Icon(Icons.date_range),
-                                    label: Text(
-                                      _selectedFilterDate != null
-                                          ? "${_selectedFilterDate!.toLocal()}"
-                                                .split(' ')[0]
-                                          : "Select Date",
-                                    ),
-                                    onPressed: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate:
-                                            _selectedFilterDate ??
-                                            DateTime.now(),
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime.now(),
-                                      );
-                                      if (picked != null) {
-                                        setState(() {
-                                          _selectedFilterDate = picked;
-                                          _page = 0;
-                                        });
-                                      }
-                                    },
-                                  ),
-                                  if (_selectedFilterDate != null)
-                                    IconButton(
-                                      icon: const Icon(Icons.clear),
-                                      onPressed: () {
-                                        setState(() {
-                                          _selectedFilterDate = null;
-                                        });
-                                      },
-                                    ),
-                                ],
-                              )
-                            : DropdownButton<String>(
-                                hint: const Text("Select Value"),
-                                value: _selectedFilterValue,
-                                items: _filterOptions[_selectedFilterCategory]!
-                                    .map(
-                                      (val) => DropdownMenuItem(
-                                        value: val,
-                                        child: Text(val),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (v) {
+                      // ================= MULTI SELECT STATUS ===================
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Status",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Wrap(
+                            spacing: 6,
+                            children: [
+                              ..._selectedStatuses.map(
+                                (s) => Chip(
+                                  label: Text(s),
+                                  onDeleted: () {
+                                    setState(() {
+                                      _selectedStatuses.remove(s);
+                                      _page = 0;
+                                    });
+                                  },
+                                ),
+                              ),
+                              ActionChip(
+                                label: const Text("Select"),
+                                avatar: const Icon(Icons.filter_alt),
+                                onPressed: () async {
+                                  final result = await _showMultiSelect(
+                                    _filterOptions["Status"]!,
+                                    _selectedStatuses,
+                                    "Select Status",
+                                  );
                                   setState(() {
-                                    _selectedFilterValue = v;
+                                    _selectedStatuses = result;
                                     _page = 0;
                                   });
                                 },
                               ),
+                            ],
+                          ),
+                        ],
+                      ),
 
+                      // ================= MULTI SELECT SOURCE ===================
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Source",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Wrap(
+                            spacing: 6,
+                            children: [
+                              ..._selectedSources.map(
+                                (s) => Chip(
+                                  label: Text(s),
+                                  onDeleted: () {
+                                    setState(() {
+                                      _selectedSources.remove(s);
+                                      _page = 0;
+                                    });
+                                  },
+                                ),
+                              ),
+                              ActionChip(
+                                label: const Text("Select"),
+                                avatar: const Icon(Icons.filter_alt),
+                                onPressed: () async {
+                                  final result = await _showMultiSelect(
+                                    _filterOptions["Source"]!,
+                                    _selectedSources,
+                                    "Select Source",
+                                  );
+                                  setState(() {
+                                    _selectedSources = result;
+                                    _page = 0;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      // ================= DATE FILTER ===================
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton.icon(
+                            icon: const Icon(Icons.date_range),
+                            label: Text(
+                              _selectedDateFilter != null
+                                  ? "${_selectedDateFilter!.toLocal()}".split(
+                                      ' ',
+                                    )[0]
+                                  : "Filter Date",
+                            ),
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate:
+                                    _selectedDateFilter ?? DateTime.now(),
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now(),
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  _selectedDateFilter = picked;
+                                  _page = 0;
+                                });
+                              }
+                            },
+                          ),
+                          if (_selectedDateFilter != null)
+                            IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() => _selectedDateFilter = null);
+                              },
+                            ),
+                        ],
+                      ),
+
+                      // ----------------------------------------------------------
                       ElevatedButton.icon(
                         onPressed: _isGenerating
                             ? null
@@ -595,9 +708,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 /// Orders Table
                 Expanded(
                   child: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
+                    scrollDirection: Axis.horizontal,
                     child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+                      scrollDirection: Axis.vertical,
                       child: DataTable(
                         showCheckboxColumn: true,
                         columns: const [
@@ -612,7 +725,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           DataColumn(label: Text("Invoice")),
                           DataColumn(label: Text("Payment")),
                         ],
-                        rows: _pagedOrders(allOrders).map((order) {
+                        rows: pageOrders.map((order) {
                           final isSelected = _selectedOrderIds.contains(
                             order.orderId,
                           );
@@ -656,11 +769,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                     order.shipmentStatus ?? "N/A",
                                     style: const TextStyle(color: Colors.blue),
                                   ),
-                                  onTap: () {
-                                    setState(() {
-                                      _showShipmentPage = true;
-                                    });
-                                  },
+                                  onTap: () =>
+                                      setState(() => _showShipmentPage = true),
                                 ),
                               ),
                               DataCell(
@@ -670,28 +780,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                           Icons.picture_as_pdf,
                                           color: Colors.red,
                                         ),
-                                        onTap: () async {
-                                          final url = Uri.parse(
-                                            order.invoiceUrl!,
-                                          );
-                                          if (await canLaunchUrl(url)) {
-                                            await launchUrl(
-                                              url,
-                                              mode: LaunchMode
-                                                  .externalApplication,
-                                            );
-                                          } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Could not open PDF',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
+                                        onTap: () => launchUrl(
+                                          Uri.parse(order.invoiceUrl!),
+                                        ),
                                       )
                                     : const Text("N/A"),
                               ),
@@ -699,11 +790,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 order.paymentTransactionId != null &&
                                         order.paymentTransactionId!.isNotEmpty
                                     ? InkWell(
-                                        onTap: () {
-                                          final url =
-                                              "https://dashboard.razorpay.com/app/orders/${order.paymentTransactionId}";
-                                          launchUrl(Uri.parse(url));
-                                        },
+                                        onTap: () => launchUrl(
+                                          Uri.parse(
+                                            "https://dashboard.razorpay.com/app/orders/${order.paymentTransactionId}",
+                                          ),
+                                        ),
                                         child: Text(
                                           order.paymentTransactionId!,
                                           style: const TextStyle(
