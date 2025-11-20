@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   pdf: ^3.10.4
+  syncfusion_flutter_pdf: ^31.2.12
   path_provider: ^2.1.4
   googleapis: ^14.0.0
   googleapis_auth: ^2.0.0
@@ -60,7 +61,8 @@ dependencies:
   google_fonts: ^5.0.0
   cached_network_image: ^3.2.3
   flutter_riverpod: ^2.3.5 # For AsyncValue
-
+  open_file: ^3.5.10
+  
 
 dev_dependencies:
   flutter_test:

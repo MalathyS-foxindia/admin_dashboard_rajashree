@@ -14,10 +14,11 @@ class OrderProvider with ChangeNotifier {
   List<Order> _orders = [];
   bool _isLoading = false;
   final SupabaseClient supabase;
-late Logger logger;
+  late Logger logger;
 
   OrderProvider(this.supabase) {
-    logger = Logger(supabase);}
+    logger = Logger(supabase);
+  }
 
   List<Order> get orders => _orders;
   bool get isLoading => _isLoading;
@@ -26,11 +27,11 @@ late Logger logger;
   Future<void> fetchOrders({String? search, String? filter}) async {
     _isLoading = true;
     notifyListeners();
-  await logger.log(
-    provider: "OrderProvider",
-    action: "fetchOrders",
-    message: "Fetching orders with search=$search filter=$filter",
-  );
+    await logger.log(
+      provider: "OrderProvider",
+      action: "fetchOrders",
+      message: "Fetching orders with search=$search filter=$filter",
+    );
 
     final queryParams = <String, String>{'limit': '1000'};
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
@@ -42,20 +43,22 @@ late Logger logger;
       queryParams,
     );
 
-    final response = await http.get(uri, headers: {
-      'Authorization': 'Bearer ${Env.anonKey}',
-    });
+    final response = await http.get(
+      uri,
+      headers: {'Authorization': 'Bearer ${Env.anonKey}'},
+    );
 
     if (response.statusCode == 200) {
-      
       final data = json.decode(response.body);
       if (data['orders'] != null) {
         // Parse with shipment status included
         _orders = List<Order>.from(
-          data['orders'].map((e) => Order.fromJson({
-                ...e,
-                'shipment_status': e['shipment_status'], // ✅ Ensure included
-              })),
+          data['orders'].map(
+            (e) => Order.fromJson({
+              ...e,
+              'shipment_status': e['shipment_status'], // ✅ Ensure included
+            }),
+          ),
         );
         await logger.log(
           provider: "OrderProvider",
@@ -64,7 +67,7 @@ late Logger logger;
         );
       }
     } else {
-       await logger.log(
+      await logger.log(
         provider: "OrderProvider",
         action: "fetchOrders",
         message: "Error ${response.statusCode}: ${response.body}",
@@ -84,9 +87,7 @@ late Logger logger;
       {'orderId': orderId},
     );
 
-    final headers = {
-      'Authorization': 'Bearer ${Env.anonKey}'
-    };
+    final headers = {'Authorization': 'Bearer ${Env.anonKey}'};
 
     try {
       final response = await http.get(uri, headers: headers);
@@ -107,11 +108,11 @@ late Logger logger;
   Future<Map<String, dynamic>?> fetchOrderJson(String orderId) async {
     try {
       print('Fetching JSON for order: $orderId');
-      final headers = {
-        'Authorization': 'Bearer ${Env.anonKey}'
-      };
+      final headers = {'Authorization': 'Bearer ${Env.anonKey}'};
       final response = await http.get(
-        Uri.parse('${Env.supabaseUrl}/functions/v1/generateinvoice?order_id=$orderId'),
+        Uri.parse(
+          '${Env.supabaseUrl}/functions/v1/generateinvoice?order_id=$orderId',
+        ),
         headers: headers,
       );
 
@@ -125,8 +126,9 @@ late Logger logger;
   }
 
   /// Upload PDF invoice to Supabase Storage
-  Future<bool> uploadInvoiceToSupabaseStorage(
-      Map<String, dynamic> invoiceData) async {
+  Future<String> uploadInvoiceToSupabaseStorage(
+    Map<String, dynamic> invoiceData,
+  ) async {
     try {
       final supabase = Supabase.instance.client;
 
@@ -137,51 +139,54 @@ late Logger logger;
         fileBytes = invoiceData['fileData'];
       } else {
         throw Exception(
-            "Invalid fileData format — must be Base64 string or Uint8List");
+          "Invalid fileData format — must be Base64 string or Uint8List",
+        );
       }
 
       final fileDate = invoiceData['filedate'] is DateTime
-    ? invoiceData['filedate'] as DateTime
-    : DateTime.tryParse(invoiceData['filedate'].toString()) ?? DateTime.now();
+          ? invoiceData['filedate'] as DateTime
+          : DateTime.tryParse(invoiceData['filedate'].toString()) ??
+                DateTime.now();
 
-// Format folder as yyyy-MM-dd
-final folderName = DateFormat('yyyy-MM-dd').format(fileDate);
+      // Format folder as yyyy-MM-dd
+      final folderName = DateFormat('yyyy-MM-dd').format(fileDate);
 
-final filePath = 'Invoices/$folderName/${invoiceData['fileName']}';
-
+      final filePath = 'Invoices/$folderName/${invoiceData['fileName']}';
 
       final response = await supabase.storage
           .from('invoices')
-          .uploadBinary(filePath, fileBytes,
-              fileOptions: FileOptions(contentType: 'application/pdf'));
+          .uploadBinary(
+            filePath,
+            fileBytes,
+            fileOptions: FileOptions(contentType: 'application/pdf'),
+          );
 
       if (response.isEmpty) {
         throw Exception("Failed to upload invoice to Supabase Storage");
       }
 
-      final publicUrl =
-          supabase.storage.from('invoices').getPublicUrl(filePath);
+      final publicUrl = supabase.storage
+          .from('invoices')
+          .getPublicUrl(filePath);
 
       debugPrint('✅ Invoice uploaded: $publicUrl');
-       // ✅ Update the order row with invoice_url
-     final updateRes = await supabase
-      .from('orders')
-      .update({'invoice_url': publicUrl})
-      .eq('order_id', invoiceData['orderId'].toString().trim())
-      .select(); // return updated rows so we can check
+      // ✅ Update the order row with invoice_url
+      final updateRes = await supabase
+          .from('orders')
+          .update({'invoice_url': publicUrl})
+          .eq('order_id', invoiceData['orderId'].toString().trim())
+          .select(); // return updated rows so we can check
 
-  if (updateRes.isEmpty) {
-    throw Exception("No order found with order_id ${invoiceData['orderId']}");
-  }
+      if (updateRes.isEmpty) {
+        throw Exception(
+          "No order found with order_id ${invoiceData['orderId']}",
+        );
+      }
       debugPrint('✅ invoice_url updated in orders table');
-    return true;  
+      return publicUrl;
+    } catch (e) {
+      debugPrint('❌ Error uploading invoice: $e');
+      return "";
     }
-    
-      catch (e) {
-    debugPrint('❌ Error uploading invoice: $e');
-    return false;
   }
-    
-  } 
-
- }
+}
