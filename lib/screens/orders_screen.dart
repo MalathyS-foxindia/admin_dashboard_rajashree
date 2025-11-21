@@ -1,13 +1,22 @@
 // lib/screens/orders_screen.dart
+import 'dart:io';
+import 'dart:html' as html;
 import 'package:admin_dashboard_rajashree/models/order_model.dart';
 import 'package:admin_dashboard_rajashree/providers/order_provider.dart';
 import 'package:admin_dashboard_rajashree/screens/trackship_screen.dart';
 import 'package:admin_dashboard_rajashree/services/invoice_service.dart';
 import 'package:admin_dashboard_rajashree/services/excel_service.dart';
 import 'package:admin_dashboard_rajashree/services/dashboard_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'dart:typed_data';
+import 'dart:convert';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -233,11 +242,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
       final matchesSearch =
           (customer?.fullName.toLowerCase().contains(searchQuery) ?? false) ||
-              (customer?.mobileNumber.contains(searchQuery) ?? false) ||
-              (order.shippingAddress.toLowerCase().contains(searchQuery)) ||
-              (order.shippingState.toLowerCase().contains(searchQuery)) ||
-              order.source.toLowerCase().contains(searchQuery) ||
-              order.orderId.toLowerCase().contains(searchQuery);
+          (customer?.mobileNumber.contains(searchQuery) ?? false) ||
+          (order.shippingAddress.toLowerCase().contains(searchQuery)) ||
+          (order.shippingState.toLowerCase().contains(searchQuery)) ||
+          order.source.toLowerCase().contains(searchQuery) ||
+          order.orderId.toLowerCase().contains(searchQuery);
 
       // MULTI SELECT STATUS
       final matchesStatus = _selectedStatuses.isEmpty
@@ -253,9 +262,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       final matchesDate = _selectedDateFilter == null
           ? true
           : (order.createdAt != null &&
-          order.createdAt!.year == _selectedDateFilter!.year &&
-          order.createdAt!.month == _selectedDateFilter!.month &&
-          order.createdAt!.day == _selectedDateFilter!.day);
+                order.createdAt!.year == _selectedDateFilter!.year &&
+                order.createdAt!.month == _selectedDateFilter!.month &&
+                order.createdAt!.day == _selectedDateFilter!.day);
 
       return matchesSearch && matchesStatus && matchesSource && matchesDate;
     }).toList();
@@ -290,6 +299,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       selectedOrders,
       orderProvider,
     );
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -316,6 +326,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
     bool allSuccess = true;
 
+    // Store URLs of uploaded invoices
+    final List<String> invoiceUrls = [];
+
+    // =============== 1️⃣ GENERATE + UPLOAD INVOICES =================
     for (String orderId in _selectedOrderIds) {
       final jsonData = await orderProvider.fetchOrderJson(orderId);
       if (jsonData == null) {
@@ -328,20 +342,77 @@ class _OrdersScreenState extends State<OrdersScreen> {
           jsonData,
         );
 
-        // ✅ Prevents the type mismatch error
         if (invoiceData == null) {
           allSuccess = false;
           continue;
         }
 
-        final success = await orderProvider.uploadInvoiceToSupabaseStorage(
+        final uploadedUrl = await orderProvider.uploadInvoiceToSupabaseStorage(
           invoiceData,
         );
-        if (!success) allSuccess = false;
+
+        if (uploadedUrl == "") {
+          allSuccess = false;
+        } else {
+          invoiceUrls.add(uploadedUrl);
+        }
       }
     }
 
-    setState(() => _isGenerating = false);
+    // =============== 2️⃣ MERGE PDF (WEB vs MOBILE) =================
+    try {
+      // Build final merged PDF
+      final PdfDocument finalDoc = PdfDocument();
+
+      for (String url in invoiceUrls) {
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode != 200) continue;
+
+        final PdfDocument doc = PdfDocument(inputBytes: response.bodyBytes);
+
+        for (int i = 0; i < doc.pages.count; i++) {
+          final page = doc.pages[i];
+          final template = page.createTemplate();
+          final newPage = finalDoc.pages.add();
+          newPage.graphics.drawPdfTemplate(template, const Offset(0, 0));
+        }
+
+        doc.dispose();
+      }
+
+      final mergedBytes = await finalDoc.save();
+      finalDoc.dispose();
+
+      // ---------- WEB (DOWNLOAD) ----------
+      if (kIsWeb) {
+        final base64Pdf = base64Encode(mergedBytes);
+        final url = "data:application/pdf;base64,$base64Pdf";
+
+        // ignore: undefined_prefixed_name
+        html.AnchorElement(href: url)
+          ..setAttribute("download", "Combined_Invoices.pdf")
+          ..click();
+
+        print("Merged PDF downloaded (web)");
+      } else {
+        // ---------- MOBILE / DESKTOP ----------
+        final dir = await getTemporaryDirectory();
+        final outFile = File("${dir.path}/Combined_Invoices.pdf");
+
+        await outFile.writeAsBytes(mergedBytes, flush: true);
+        await OpenFile.open(outFile.path);
+
+        print("Merged PDF saved at ${outFile.path}");
+      }
+    } catch (e) {
+      print("PDF merge error: $e");
+    }
+
+    // Cleanup
+    setState(() {
+      _isGenerating = false;
+      _selectedOrderIds.clear();
+    });
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -354,10 +425,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ),
       );
     }
-
-    setState(() {
-      _selectedOrderIds.clear();
-    });
   }
 
   Future<void> _showOrderDetails(BuildContext context, Order order) async {
@@ -425,10 +492,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   // ----------------- MULTI SELECT HELPER -----------------
   Future<List<String>> _showMultiSelect(
-      List<String> options,
-      List<String> selectedValues,
-      String title,
-      ) async {
+    List<String> options,
+    List<String> selectedValues,
+    String title,
+  ) async {
     final tempSelected = [...selectedValues];
 
     await showModalBottomSheet(
@@ -585,221 +652,283 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   ],
                 ),
 
-                // ================= MULTI SELECT SOURCE ===================
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Source",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        ..._selectedSources.map(
-                              (s) => Chip(
-                            label: Text(s),
-                            onDeleted: () {
-                              setState(() {
-                                _selectedSources.remove(s);
-                                _page = 0;
-                              });
+                      // ---------------- NEW MULTI-SELECT FILTER UI ----------------
+
+                      // ================= MULTI SELECT STATUS ===================
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Status",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Wrap(
+                            spacing: 6,
+                            children: [
+                              ..._selectedStatuses.map(
+                                (s) => Chip(
+                                  label: Text(s),
+                                  onDeleted: () {
+                                    setState(() {
+                                      _selectedStatuses.remove(s);
+                                      _page = 0;
+                                    });
+                                  },
+                                ),
+                              ),
+                              ActionChip(
+                                label: const Text("Select"),
+                                avatar: const Icon(Icons.filter_alt),
+                                onPressed: () async {
+                                  final result = await _showMultiSelect(
+                                    _filterOptions["Status"]!,
+                                    _selectedStatuses,
+                                    "Select Status",
+                                  );
+                                  setState(() {
+                                    _selectedStatuses = result;
+                                    _page = 0;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+
+                      // ================= MULTI SELECT SOURCE ===================
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Source",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Wrap(
+                            spacing: 6,
+                            children: [
+                              ..._selectedSources.map(
+                                (s) => Chip(
+                                  label: Text(s),
+                                  onDeleted: () {
+                                    setState(() {
+                                      _selectedSources.remove(s);
+                                      _page = 0;
+                                    });
+                                  },
+                                ),
+                              ),
+                              ActionChip(
+                                label: const Text("Select"),
+                                avatar: const Icon(Icons.filter_alt),
+                                onPressed: () async {
+                                  final result = await _showMultiSelect(
+                                    _filterOptions["Source"]!,
+                                    _selectedSources,
+                                    "Select Source",
+                                  );
+                                  setState(() {
+                                    _selectedSources = result;
+                                    _page = 0;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      // ================= DATE FILTER ===================
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton.icon(
+                            icon: const Icon(Icons.date_range),
+                            label: Text(
+                              _selectedDateFilter != null
+                                  ? "${_selectedDateFilter!.toLocal()}".split(
+                                      ' ',
+                                    )[0]
+                                  : "Filter Date",
+                            ),
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate:
+                                    _selectedDateFilter ?? DateTime.now(),
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime.now(),
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  _selectedDateFilter = picked;
+                                  _page = 0;
+                                });
+                              }
                             },
                           ),
-                        ),
-                        ActionChip(
-                          label: const Text("Select"),
-                          avatar: const Icon(Icons.filter_alt),
-                          onPressed: () async {
-                            final result = await _showMultiSelect(
-                              _filterOptions["Source"]!,
-                              _selectedSources,
-                              "Select Source",
-                            );
-                            setState(() {
-                              _selectedSources = result;
-                              _page = 0;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-
-                // ================= DATE FILTER ===================
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.date_range),
-                      label: Text(
-                        _selectedDateFilter != null
-                            ? "${_selectedDateFilter!.toLocal()}".split(
-                          ' ',
-                        )[0]
-                            : "Filter Date",
+                          if (_selectedDateFilter != null)
+                            IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() => _selectedDateFilter = null);
+                              },
+                            ),
+                        ],
                       ),
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate:
-                          _selectedDateFilter ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            _selectedDateFilter = picked;
-                            _page = 0;
-                          });
-                        }
-                      },
-                    ),
-                    if (_selectedDateFilter != null)
-                      IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          setState(() => _selectedDateFilter = null);
-                        },
-                      ),
-                  ],
-                ),
 
-                // ----------------------------------------------------------
-                ElevatedButton.icon(
-                  onPressed: _isGenerating
-                      ? null
-                      : () => _generateInvoices(context),
-                  icon: _isGenerating
-                      ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
-                      : const Icon(Icons.picture_as_pdf),
-                  label: const Text('Generate Invoice'),
-                ),
-                ElevatedButton.icon(
-                  onPressed:
-                  (_selectedOrderIds.isNotEmpty && !_isExporting)
-                      ? _exportOrdersToExcel
-                      : null,
-                  icon: _isExporting
-                      ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
-                      : const Icon(Icons.file_download),
-                  label: Text(
-                    'Export Excel (${_selectedOrderIds.length})',
+                      // ----------------------------------------------------------
+                      ElevatedButton.icon(
+                        onPressed: _isGenerating
+                            ? null
+                            : () => _generateInvoices(context),
+                        icon: _isGenerating
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.picture_as_pdf),
+                        label: const Text('Generate Invoice'),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed:
+                            (_selectedOrderIds.isNotEmpty && !_isExporting)
+                            ? _exportOrdersToExcel
+                            : null,
+                        icon: _isExporting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.file_download),
+                        label: Text(
+                          'Export Excel (${_selectedOrderIds.length})',
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
 
-          /// Orders Table
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: DataTable(
-                  showCheckboxColumn: true,
-                  columns: const [
-                    DataColumn(label: Text("Date")),
-                    DataColumn(label: Text("Order ID")),
-                    DataColumn(label: Text("Customer Name")),
-                    DataColumn(label: Text("Mobile")),
-                    DataColumn(label: Text("Amount")),
-                    DataColumn(label: Text("Source")),
-                    DataColumn(label: Text("Order Status")),
-                    DataColumn(label: Text("Shipment Status")),
-                    DataColumn(label: Text("Invoice")),
-                    DataColumn(label: Text("Payment")),
-                  ],
-                  rows: pageOrders.map((order) {
-                    final isSelected = _selectedOrderIds.contains(
-                      order.orderId,
-                    );
-                    return DataRow(
-                      selected: isSelected,
-                      onSelectChanged: (v) {
-                        setState(() {
-                          if (v == true) {
-                            _selectedOrderIds.add(order.orderId);
-                          } else {
-                            _selectedOrderIds.remove(order.orderId);
-                          }
-                        });
-                      },
-                      cells: [
-                        DataCell(Text(order.orderDate)),
-                        DataCell(
-                          InkWell(
-                            child: Text(
-                              order.orderId,
-                              style: const TextStyle(color: Colors.blue),
-                            ),
-                            onTap: () =>
-                                _showOrderDetails(context, order),
-                          ),
-                        ),
-                        DataCell(Text(order.customer?.fullName ?? "N/A")),
-                        DataCell(
-                          Text(order.customer?.mobileNumber ?? "N/A"),
-                        ),
-                        DataCell(
-                          Text(
-                            "₹${order.totalAmount.toStringAsFixed(2)}",
-                          ),
-                        ),
-                        DataCell(Text(order.source)),
-                        DataCell(Text(order.orderStatus)),
-                        DataCell(
-                          InkWell(
-                            child: Text(
-                              order.shipmentStatus ?? "N/A",
-                              style: const TextStyle(color: Colors.blue),
-                            ),
-                            onTap: () =>
-                                setState(() => _showShipmentPage = true),
-                          ),
-                        ),
-                        DataCell(
-                          order.invoiceUrl != null
-                              ? InkWell(
-                            child: const Icon(
-                              Icons.picture_as_pdf,
-                              color: Colors.red,
-                            ),
-                            onTap: () => launchUrl(
-                              Uri.parse(order.invoiceUrl!),
-                            ),
-                          )
-                              : const Text("N/A"),
-                        ),
-                        DataCell(
-                          order.paymentTransactionId != null &&
-                              order.paymentTransactionId!.isNotEmpty
-                              ? InkWell(
-                            onTap: () => launchUrl(
-                              Uri.parse(
-                                "https://dashboard.razorpay.com/app/orders/${order.paymentTransactionId}",
+                /// Orders Table
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: DataTable(
+                        showCheckboxColumn: true,
+                        columns: const [
+                          DataColumn(label: Text("Date")),
+                          DataColumn(label: Text("Order ID")),
+                          DataColumn(label: Text("Customer Name")),
+                          DataColumn(label: Text("Mobile")),
+                          DataColumn(label: Text("Amount")),
+                          DataColumn(label: Text("Source")),
+                          DataColumn(label: Text("Order Status")),
+                          DataColumn(label: Text("Shipment Status")),
+                          DataColumn(label: Text("Invoice")),
+                          DataColumn(label: Text("Payment")),
+                        ],
+                        rows: pageOrders.map((order) {
+                          final isSelected = _selectedOrderIds.contains(
+                            order.orderId,
+                          );
+                          return DataRow(
+                            selected: isSelected,
+                            onSelectChanged: (v) {
+                              setState(() {
+                                if (v == true) {
+                                  _selectedOrderIds.add(order.orderId);
+                                } else {
+                                  _selectedOrderIds.remove(order.orderId);
+                                }
+                              });
+                            },
+                            cells: [
+                              DataCell(Text(order.orderDate)),
+                              DataCell(
+                                InkWell(
+                                  child: Text(
+                                    order.orderId,
+                                    style: const TextStyle(color: Colors.blue),
+                                  ),
+                                  onTap: () =>
+                                      _showOrderDetails(context, order),
+                                ),
                               ),
-                            ),
-                            child: Text(
-                              order.paymentTransactionId!,
-                              style: const TextStyle(
-                                color: Colors.blue,
-                                decoration:
-                                TextDecoration.underline,
+                              DataCell(
+                                SizedBox(
+                                  width: 150, // 👈 give a fixed width
+                                  child: Text(
+                                    order.customer?.fullName ?? "N/A",
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Text(order.customer?.mobileNumber ?? "N/A"),
+                              ),
+                              DataCell(
+                                Text(
+                                  "₹${order.totalAmount.toStringAsFixed(2)}",
+                                ),
+                              ),
+                              DataCell(Text(order.source)),
+                              DataCell(Text(order.orderStatus)),
+                              DataCell(
+                                InkWell(
+                                  child: Text(
+                                    order.shipmentStatus ?? "N/A",
+                                    style: const TextStyle(color: Colors.blue),
+                                  ),
+                                  onTap: () =>
+                                      setState(() => _showShipmentPage = true),
+                                ),
+                              ),
+                              DataCell(
+                                order.invoiceUrl != null
+                                    ? InkWell(
+                                        child: const Icon(
+                                          Icons.picture_as_pdf,
+                                          color: Colors.red,
+                                        ),
+                                        onTap: () => launchUrl(
+                                          Uri.parse(order.invoiceUrl!),
+                                        ),
+                                      )
+                                    : const Text("N/A"),
+                              ),
+                              DataCell(
+                                order.paymentTransactionId != null &&
+                                        order.paymentTransactionId!.isNotEmpty
+                                    ? InkWell(
+                                        onTap: () => launchUrl(
+                                          Uri.parse(
+                                            "https://dashboard.razorpay.com/app/orders/${order.paymentTransactionId}",
+                                          ),
+                                        ),
+                                        child: Text(
+                                          order.paymentTransactionId!,
+                                          style: const TextStyle(
+                                            color: Colors.blue,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      )
+                                    : const Text("Not Paid"),
                               ),
                             ),
                           )
