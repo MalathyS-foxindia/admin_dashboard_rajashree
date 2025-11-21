@@ -34,9 +34,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
   bool _isExporting = false;
   bool _showShipmentPage = false;
 
-  String? _selectedFilterCategory;
-  String? _selectedFilterValue;
-  DateTime? _selectedFilterDate;
+  // ---------- NEW multi-select filter state ----------
+  List<String> _selectedStatuses = [];
+  List<String> _selectedSources = [];
+  DateTime? _selectedDateFilter;
+  // --------------------------------------------------
 
   DateTime _selectedDate = DateTime.now();
   List<Map<String, dynamic>> _skuSummary = [];
@@ -46,7 +48,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void initState() {
     super.initState();
     Future.microtask(
-      () => Provider.of<OrderProvider>(context, listen: false).fetchOrders(),
+          () => Provider.of<OrderProvider>(context, listen: false).fetchOrders(),
     );
     _loadSkuSummary();
   }
@@ -110,23 +112,23 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           onPressed: _skuSummary.isEmpty
                               ? null
                               : () async {
-                                  final success =
-                                      await ExcelService.exportSkuSummaryToExcel(
-                                        _skuSummary,
-                                        _selectedDate,
-                                      );
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          success
-                                              ? 'SKU Summary exported!'
-                                              : 'Failed to export.',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
+                            final success =
+                            await ExcelService.exportSkuSummaryToExcel(
+                              _skuSummary,
+                              _selectedDate,
+                            );
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    success
+                                        ? 'SKU Summary exported!'
+                                        : 'Failed to export.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                           icon: const Icon(Icons.file_download),
                           label: const Text("Export Excel"),
                         ),
@@ -137,69 +139,69 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       height: 400,
                       child: _skuSummary.isEmpty
                           ? const Center(
-                              child: Text("No sales summary available"),
-                            )
+                        child: Text("No sales summary available"),
+                      )
                           : SingleChildScrollView(
-                              scrollDirection: Axis.vertical,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: DataTable(
-                                  headingRowColor:
-                                      WidgetStateProperty.resolveWith(
-                                        (states) => Colors.grey[200],
-                                      ),
-                                  columns: const [
-                                    DataColumn(label: Text("SKU")),
-                                    DataColumn(label: Text("Variant")),
-                                    DataColumn(label: Text("Qty Sold")),
-                                    DataColumn(label: Text("Current Stock")),
-                                  ],
-                                  rows: _skuSummary.map((sku) {
-                                    final currentStock =
-                                        int.tryParse(
-                                          sku['current_stock']?.toString() ??
-                                              '0',
-                                        ) ??
-                                        0;
-                                    final totalQty =
-                                        int.tryParse(
-                                          sku['total_qty']?.toString() ?? '0',
-                                        ) ??
-                                        0;
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          Text(
-                                            (sku['sku'] ?? 'N/A').toString(),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            (sku['variant_name'] ?? 'N/A')
-                                                .toString(),
-                                          ),
-                                        ),
-                                        DataCell(Text(totalQty.toString())),
-                                        DataCell(
-                                          Text(
-                                            currentStock.toString(),
-                                            style: TextStyle(
-                                              color: currentStock < totalQty
-                                                  ? Colors.red
-                                                  : Colors.black,
-                                              fontWeight:
-                                                  currentStock < totalQty
-                                                  ? FontWeight.bold
-                                                  : FontWeight.normal,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
+                        scrollDirection: Axis.vertical,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            headingRowColor:
+                            WidgetStateProperty.resolveWith(
+                                  (states) => Colors.grey[200],
                             ),
+                            columns: const [
+                              DataColumn(label: Text("SKU")),
+                              DataColumn(label: Text("Variant")),
+                              DataColumn(label: Text("Qty Sold")),
+                              DataColumn(label: Text("Current Stock")),
+                            ],
+                            rows: _skuSummary.map((sku) {
+                              final currentStock =
+                                  int.tryParse(
+                                    sku['current_stock']?.toString() ??
+                                        '0',
+                                  ) ??
+                                      0;
+                              final totalQty =
+                                  int.tryParse(
+                                    sku['total_qty']?.toString() ?? '0',
+                                  ) ??
+                                      0;
+                              return DataRow(
+                                cells: [
+                                  DataCell(
+                                    Text(
+                                      (sku['sku'] ?? 'N/A').toString(),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      (sku['variant_name'] ?? 'N/A')
+                                          .toString(),
+                                    ),
+                                  ),
+                                  DataCell(Text(totalQty.toString())),
+                                  DataCell(
+                                    Text(
+                                      currentStock.toString(),
+                                      style: TextStyle(
+                                        color: currentStock < totalQty
+                                            ? Colors.red
+                                            : Colors.black,
+                                        fontWeight:
+                                        currentStock < totalQty
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -224,40 +226,41 @@ class _OrdersScreenState extends State<OrdersScreen> {
     });
   }
 
+  // ----------------- UPDATED FILTERING (supports multi-select) -----------------
   List<Order> _applyFilter(List<Order> all) {
     return all.where((order) {
       final customer = order.customer;
 
       final matchesSearch =
-          (customer?.mobileNumber?.contains(searchQuery) ?? false) ||
-          (customer?.address?.toLowerCase().contains(searchQuery) ?? false) ||
-          (customer?.state?.toLowerCase().contains(searchQuery) ?? false) ||
-          order.source.toLowerCase().contains(searchQuery) ||
-          order.orderId.toLowerCase().contains(searchQuery);
+          (customer?.fullName.toLowerCase().contains(searchQuery) ?? false) ||
+              (customer?.mobileNumber.contains(searchQuery) ?? false) ||
+              (order.shippingAddress.toLowerCase().contains(searchQuery)) ||
+              (order.shippingState.toLowerCase().contains(searchQuery)) ||
+              order.source.toLowerCase().contains(searchQuery) ||
+              order.orderId.toLowerCase().contains(searchQuery);
 
-      bool matchesFilter = true;
+      // MULTI SELECT STATUS
+      final matchesStatus = _selectedStatuses.isEmpty
+          ? true
+          : _selectedStatuses.contains(order.orderStatus);
 
-      if (_selectedFilterCategory != null) {
-        switch (_selectedFilterCategory) {
-          case "Status":
-            matchesFilter = order.orderStatus == _selectedFilterValue;
-            break;
-          case "Source":
-            matchesFilter = order.source == _selectedFilterValue;
-            break;
-          case "Date":
-            if (_selectedFilterDate != null) {
-              matchesFilter =
-                  order.orderDate ==
-                  _selectedFilterDate!.toLocal().toString().split(' ')[0];
-            }
-            break;
-        }
-      }
+      // MULTI SELECT SOURCE
+      final matchesSource = _selectedSources.isEmpty
+          ? true
+          : _selectedSources.contains(order.source);
 
-      return matchesSearch && matchesFilter;
+      // SINGLE SELECT DATE
+      final matchesDate = _selectedDateFilter == null
+          ? true
+          : (order.createdAt != null &&
+          order.createdAt!.year == _selectedDateFilter!.year &&
+          order.createdAt!.month == _selectedDateFilter!.month &&
+          order.createdAt!.day == _selectedDateFilter!.day);
+
+      return matchesSearch && matchesStatus && matchesSource && matchesDate;
     }).toList();
   }
+  // -----------------------------------------------------------------------------
 
   List<Order> _pagedOrders(List<Order> allFiltered) {
     final start = _page * _pageSize;
@@ -283,8 +286,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
         .where((order) => _selectedOrderIds.contains(order.orderId))
         .toList();
 
-    final success = await ExcelService.exportToExcel(selectedOrders);
-
+    final success = await ExcelService.exportToExcel(
+      selectedOrders,
+      orderProvider,
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -418,6 +423,72 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
+  // ----------------- MULTI SELECT HELPER -----------------
+  Future<List<String>> _showMultiSelect(
+      List<String> options,
+      List<String> selectedValues,
+      String title,
+      ) async {
+    final tempSelected = [...selectedValues];
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Wrap(
+                    spacing: 12,
+                    children: options.map((opt) {
+                      final isSelected = tempSelected.contains(opt);
+                      return FilterChip(
+                        label: Text(opt),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              tempSelected.add(opt);
+                            } else {
+                              tempSelected.remove(opt);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Apply"),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    return tempSelected;
+  }
+  // ------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     final orderProvider = Provider.of<OrderProvider>(context);
@@ -433,9 +504,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
         title: Text(_showShipmentPage ? 'Shipment Tracking' : 'Orders'),
         leading: _showShipmentPage
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _showShipmentPage = false),
-              )
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => setState(() => _showShipmentPage = false),
+        )
             : null,
       ),
       body: _showShipmentPage
@@ -443,322 +514,344 @@ class _OrdersScreenState extends State<OrdersScreen> {
           : orderProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
+        children: [
+          /// 🔹 Top controls row
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: _showSkuSummaryDialog,
+            icon: const Icon(Icons.inventory),
+            label: const Text("SKU Summary"),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                /// 🔹 Top controls row
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: _showSkuSummaryDialog,
-                  icon: const Icon(Icons.inventory),
-                  label: const Text("SKU Summary"),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Wrap(
-                    spacing: 16,
-                    runSpacing: 12,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 300,
-                        child: TextField(
-                          onChanged: filterOrders,
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.search),
-                            hintText: 'Search by mobile, source, order id',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-
-                      // 🔹 Filter Dropdowns (Category + Value)
-                      DropdownButton<String>(
-                        hint: const Text("Choose Filter"),
-                        value: _selectedFilterCategory,
-                        items: _filterOptions.keys
-                            .map(
-                              (cat) => DropdownMenuItem(
-                                value: cat,
-                                child: Text(cat),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) {
-                          setState(() {
-                            _selectedFilterCategory = v;
-                            _selectedFilterValue = null;
-                            _selectedFilterDate = null;
-                            _page = 0;
-                          });
-                        },
-                      ),
-
-                      if (_selectedFilterCategory != null)
-                        _selectedFilterCategory == "Date"
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  TextButton.icon(
-                                    icon: const Icon(Icons.date_range),
-                                    label: Text(
-                                      _selectedFilterDate != null
-                                          ? "${_selectedFilterDate!.toLocal()}"
-                                                .split(' ')[0]
-                                          : "Select Date",
-                                    ),
-                                    onPressed: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate:
-                                            _selectedFilterDate ??
-                                            DateTime.now(),
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime.now(),
-                                      );
-                                      if (picked != null) {
-                                        setState(() {
-                                          _selectedFilterDate = picked;
-                                          _page = 0;
-                                        });
-                                      }
-                                    },
-                                  ),
-                                  if (_selectedFilterDate != null)
-                                    IconButton(
-                                      icon: const Icon(Icons.clear),
-                                      onPressed: () {
-                                        setState(() {
-                                          _selectedFilterDate = null;
-                                        });
-                                      },
-                                    ),
-                                ],
-                              )
-                            : DropdownButton<String>(
-                                hint: const Text("Select Value"),
-                                value: _selectedFilterValue,
-                                items: _filterOptions[_selectedFilterCategory]!
-                                    .map(
-                                      (val) => DropdownMenuItem(
-                                        value: val,
-                                        child: Text(val),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (v) {
-                                  setState(() {
-                                    _selectedFilterValue = v;
-                                    _page = 0;
-                                  });
-                                },
-                              ),
-
-                      ElevatedButton.icon(
-                        onPressed: _isGenerating
-                            ? null
-                            : () => _generateInvoices(context),
-                        icon: _isGenerating
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.picture_as_pdf),
-                        label: const Text('Generate Invoice'),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed:
-                            (_selectedOrderIds.isNotEmpty && !_isExporting)
-                            ? _exportOrdersToExcel
-                            : null,
-                        icon: _isExporting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.file_download),
-                        label: Text(
-                          'Export Excel (${_selectedOrderIds.length})',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                /// Orders Table
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        showCheckboxColumn: true,
-                        columns: const [
-                          DataColumn(label: Text("Date")),
-                          DataColumn(label: Text("Order ID")),
-                          DataColumn(label: Text("Customer Name")),
-                          DataColumn(label: Text("Mobile")),
-                          DataColumn(label: Text("Amount")),
-                          DataColumn(label: Text("Source")),
-                          DataColumn(label: Text("Order Status")),
-                          DataColumn(label: Text("Shipment Status")),
-                          DataColumn(label: Text("Invoice")),
-                          DataColumn(label: Text("Payment")),
-                        ],
-                        rows: _pagedOrders(allOrders).map((order) {
-                          final isSelected = _selectedOrderIds.contains(
-                            order.orderId,
-                          );
-                          return DataRow(
-                            selected: isSelected,
-                            onSelectChanged: (v) {
-                              setState(() {
-                                if (v == true) {
-                                  _selectedOrderIds.add(order.orderId);
-                                } else {
-                                  _selectedOrderIds.remove(order.orderId);
-                                }
-                              });
-                            },
-                            cells: [
-                              DataCell(Text(order.orderDate)),
-                              DataCell(
-                                InkWell(
-                                  child: Text(
-                                    order.orderId,
-                                    style: const TextStyle(color: Colors.blue),
-                                  ),
-                                  onTap: () =>
-                                      _showOrderDetails(context, order),
-                                ),
-                              ),
-                              DataCell(Text(order.customer?.fullName ?? "N/A")),
-                              DataCell(
-                                Text(order.customer?.mobileNumber ?? "N/A"),
-                              ),
-                              DataCell(
-                                Text(
-                                  "₹${order.totalAmount.toStringAsFixed(2)}",
-                                ),
-                              ),
-                              DataCell(Text(order.source)),
-                              DataCell(Text(order.orderStatus)),
-                              DataCell(
-                                InkWell(
-                                  child: Text(
-                                    order.shipmentStatus ?? "N/A",
-                                    style: const TextStyle(color: Colors.blue),
-                                  ),
-                                  onTap: () {
-                                    setState(() {
-                                      _showShipmentPage = true;
-                                    });
-                                  },
-                                ),
-                              ),
-                              DataCell(
-                                order.invoiceUrl != null
-                                    ? InkWell(
-                                        child: const Icon(
-                                          Icons.picture_as_pdf,
-                                          color: Colors.red,
-                                        ),
-                                        onTap: () async {
-                                          final url = Uri.parse(
-                                            order.invoiceUrl!,
-                                          );
-                                          if (await canLaunchUrl(url)) {
-                                            await launchUrl(
-                                              url,
-                                              mode: LaunchMode
-                                                  .externalApplication,
-                                            );
-                                          } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Could not open PDF',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                      )
-                                    : const Text("N/A"),
-                              ),
-                              DataCell(
-                                order.paymentTransactionId != null &&
-                                        order.paymentTransactionId!.isNotEmpty
-                                    ? InkWell(
-                                        onTap: () {
-                                          final url =
-                                              "https://dashboard.razorpay.com/app/orders/${order.paymentTransactionId}";
-                                          launchUrl(Uri.parse(url));
-                                        },
-                                        child: Text(
-                                          order.paymentTransactionId!,
-                                          style: const TextStyle(
-                                            color: Colors.blue,
-                                            decoration:
-                                                TextDecoration.underline,
-                                          ),
-                                        ),
-                                      )
-                                    : const Text("Not Paid"),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
+                SizedBox(
+                  width: 300,
+                  child: TextField(
+                    onChanged: filterOrders,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Search by mobile, source, order id',
+                      border: OutlineInputBorder(),
                     ),
                   ),
                 ),
 
-                /// 🔹 Pagination controls + Rows per page
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+                // ---------------- NEW MULTI-SELECT FILTER UI ----------------
+
+                // ================= MULTI SELECT STATUS ===================
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Status",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        ..._selectedStatuses.map(
+                              (s) => Chip(
+                            label: Text(s),
+                            onDeleted: () {
+                              setState(() {
+                                _selectedStatuses.remove(s);
+                                _page = 0;
+                              });
+                            },
+                          ),
+                        ),
+                        ActionChip(
+                          label: const Text("Select"),
+                          avatar: const Icon(Icons.filter_alt),
+                          onPressed: () async {
+                            final result = await _showMultiSelect(
+                              _filterOptions["Status"]!,
+                              _selectedStatuses,
+                              "Select Status",
+                            );
+                            setState(() {
+                              _selectedStatuses = result;
+                              _page = 0;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                // ================= MULTI SELECT SOURCE ===================
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Source",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        ..._selectedSources.map(
+                              (s) => Chip(
+                            label: Text(s),
+                            onDeleted: () {
+                              setState(() {
+                                _selectedSources.remove(s);
+                                _page = 0;
+                              });
+                            },
+                          ),
+                        ),
+                        ActionChip(
+                          label: const Text("Select"),
+                          avatar: const Icon(Icons.filter_alt),
+                          onPressed: () async {
+                            final result = await _showMultiSelect(
+                              _filterOptions["Source"]!,
+                              _selectedSources,
+                              "Select Source",
+                            );
+                            setState(() {
+                              _selectedSources = result;
+                              _page = 0;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                // ================= DATE FILTER ===================
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton.icon(
+                      icon: const Icon(Icons.date_range),
+                      label: Text(
+                        _selectedDateFilter != null
+                            ? "${_selectedDateFilter!.toLocal()}".split(
+                          ' ',
+                        )[0]
+                            : "Filter Date",
+                      ),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate:
+                          _selectedDateFilter ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            _selectedDateFilter = picked;
+                            _page = 0;
+                          });
+                        }
+                      },
+                    ),
+                    if (_selectedDateFilter != null)
                       IconButton(
-                        onPressed: _page > 0
-                            ? () => setState(() => _page--)
-                            : null,
-                        icon: const Icon(Icons.chevron_left),
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() => _selectedDateFilter = null);
+                        },
                       ),
-                      Text('Page ${_page + 1} / $totalPages'),
-                      IconButton(
-                        onPressed: (_page + 1) < totalPages
-                            ? () => setState(() => _page++)
-                            : null,
-                        icon: const Icon(Icons.chevron_right),
-                      ),
-                      const SizedBox(width: 20),
-                      const Text("Rows per page: "),
-                      DropdownButton<int>(
-                        value: _pageSize,
-                        items: _pageSizeOptions
-                            .map(
-                              (s) =>
-                                  DropdownMenuItem(value: s, child: Text('$s')),
-                            )
-                            .toList(),
-                        onChanged: (v) => setState(() {
-                          _pageSize = v!;
-                          _page = 0;
-                        }),
-                      ),
-                    ],
+                  ],
+                ),
+
+                // ----------------------------------------------------------
+                ElevatedButton.icon(
+                  onPressed: _isGenerating
+                      ? null
+                      : () => _generateInvoices(context),
+                  icon: _isGenerating
+                      ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Icon(Icons.picture_as_pdf),
+                  label: const Text('Generate Invoice'),
+                ),
+                ElevatedButton.icon(
+                  onPressed:
+                  (_selectedOrderIds.isNotEmpty && !_isExporting)
+                      ? _exportOrdersToExcel
+                      : null,
+                  icon: _isExporting
+                      ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Icon(Icons.file_download),
+                  label: Text(
+                    'Export Excel (${_selectedOrderIds.length})',
                   ),
                 ),
               ],
             ),
+          ),
+
+          /// Orders Table
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: DataTable(
+                  showCheckboxColumn: true,
+                  columns: const [
+                    DataColumn(label: Text("Date")),
+                    DataColumn(label: Text("Order ID")),
+                    DataColumn(label: Text("Customer Name")),
+                    DataColumn(label: Text("Mobile")),
+                    DataColumn(label: Text("Amount")),
+                    DataColumn(label: Text("Source")),
+                    DataColumn(label: Text("Order Status")),
+                    DataColumn(label: Text("Shipment Status")),
+                    DataColumn(label: Text("Invoice")),
+                    DataColumn(label: Text("Payment")),
+                  ],
+                  rows: pageOrders.map((order) {
+                    final isSelected = _selectedOrderIds.contains(
+                      order.orderId,
+                    );
+                    return DataRow(
+                      selected: isSelected,
+                      onSelectChanged: (v) {
+                        setState(() {
+                          if (v == true) {
+                            _selectedOrderIds.add(order.orderId);
+                          } else {
+                            _selectedOrderIds.remove(order.orderId);
+                          }
+                        });
+                      },
+                      cells: [
+                        DataCell(Text(order.orderDate)),
+                        DataCell(
+                          InkWell(
+                            child: Text(
+                              order.orderId,
+                              style: const TextStyle(color: Colors.blue),
+                            ),
+                            onTap: () =>
+                                _showOrderDetails(context, order),
+                          ),
+                        ),
+                        DataCell(Text(order.customer?.fullName ?? "N/A")),
+                        DataCell(
+                          Text(order.customer?.mobileNumber ?? "N/A"),
+                        ),
+                        DataCell(
+                          Text(
+                            "₹${order.totalAmount.toStringAsFixed(2)}",
+                          ),
+                        ),
+                        DataCell(Text(order.source)),
+                        DataCell(Text(order.orderStatus)),
+                        DataCell(
+                          InkWell(
+                            child: Text(
+                              order.shipmentStatus ?? "N/A",
+                              style: const TextStyle(color: Colors.blue),
+                            ),
+                            onTap: () =>
+                                setState(() => _showShipmentPage = true),
+                          ),
+                        ),
+                        DataCell(
+                          order.invoiceUrl != null
+                              ? InkWell(
+                            child: const Icon(
+                              Icons.picture_as_pdf,
+                              color: Colors.red,
+                            ),
+                            onTap: () => launchUrl(
+                              Uri.parse(order.invoiceUrl!),
+                            ),
+                          )
+                              : const Text("N/A"),
+                        ),
+                        DataCell(
+                          order.paymentTransactionId != null &&
+                              order.paymentTransactionId!.isNotEmpty
+                              ? InkWell(
+                            onTap: () => launchUrl(
+                              Uri.parse(
+                                "https://dashboard.razorpay.com/app/orders/${order.paymentTransactionId}",
+                              ),
+                            ),
+                            child: Text(
+                              order.paymentTransactionId!,
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                decoration:
+                                TextDecoration.underline,
+                              ),
+                            ),
+                          )
+                              : const Text("Not Paid"),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+
+          /// 🔹 Pagination controls + Rows per page
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: _page > 0
+                      ? () => setState(() => _page--)
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Text('Page ${_page + 1} / $totalPages'),
+                IconButton(
+                  onPressed: (_page + 1) < totalPages
+                      ? () => setState(() => _page++)
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                ),
+                const SizedBox(width: 20),
+                const Text("Rows per page: "),
+                DropdownButton<int>(
+                  value: _pageSize,
+                  items: _pageSizeOptions
+                      .map(
+                        (s) =>
+                        DropdownMenuItem(value: s, child: Text('$s')),
+                  )
+                      .toList(),
+                  onChanged: (v) => setState(() {
+                    _pageSize = v!;
+                    _page = 0;
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

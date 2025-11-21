@@ -1,6 +1,6 @@
-
 import 'dart:js_interop';
 
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'customer_model.dart';
@@ -20,7 +20,6 @@ class Order {
   final String shippingState;
   final String shippingPincode;
   final String contactNumber;
-  
 
   final String orderDate;
   final String orderStatus;
@@ -28,7 +27,7 @@ class Order {
   // ✅ New fields
   final String? invoiceUrl;
   final String? shipmentStatus;
-
+  final DateTime? createdAt;
   // ✅ Embedded customer object
   final Customer? customer;
 
@@ -50,43 +49,52 @@ class Order {
     required this.shippingAddress,
     required this.shippingState,
     required this.contactNumber,
-    required this.shippingPincode
+    required this.shippingPincode,
+    this.createdAt,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
-  String? shipmentStatus;
-  if (json['shipment_tracking'] != null &&
-      (json['shipment_tracking'] as List).isNotEmpty) {
-    shipmentStatus = json['shipment_tracking'][0]['shipping_status']?.toString();
+    String? shipmentStatus;
+    if (json['shipment_tracking'] != null &&
+        (json['shipment_tracking'] as List).isNotEmpty) {
+      shipmentStatus = json['shipment_tracking'][0]['shipping_status']
+          ?.toString();
+    }
+    DateTime? createdAt;
+    if (json['created_at'] != null &&
+        json['created_at'].toString().isNotEmpty) {
+      createdAt = DateTime.parse(
+        json['created_at'],
+      ).toLocal(); // <-- correct IST
+    }
+
+    return Order(
+      createdAt: createdAt,
+      orderDate: createdAt != null
+          ? DateFormat('dd MMM yyyy, hh:mm a').format(createdAt)
+          : 'N/A',
+
+      orderId: json['order_id'].toString(),
+      customerId: json['customer_id']?.toString(),
+      totalAmount: (json['total_amount'] as num).toDouble(),
+      source: json['source']?.toString() ?? '',
+      shippingAmount: (json['shipping_amount'] as num).toDouble(),
+      paymentMethod: json['payment_method']?.toString() ?? '',
+      paymentTransactionId: json['payment_transaction_id']?.toString() ?? '',
+      orderNote: json['order_note']?.toString() ?? '',
+      orderStatus: json['order_status']?.toString() ?? '',
+      invoiceUrl: json['invoice_url']?.toString(),
+      name: json['name']?.toString() ?? '',
+      shippingAddress: json['shipping_address']?.toString() ?? '',
+      shippingState: json['shipping_state']?.toString() ?? '',
+      shippingPincode: json['shipping_pincode']?.toString() ?? '',
+      contactNumber: json['contact_number']?.toString() ?? '',
+      shipmentStatus: shipmentStatus,
+      customer: json['customers'] != null
+          ? Customer.fromJson(json['customers'])
+          : null,
+    );
   }
-
-  return Order(
-    orderDate: DateTime.parse(json['created_at'])
-        .toLocal()
-        .toString()
-        .split(' ')[0],
-    orderId: json['order_id'].toString(),
-    customerId: json['customer_id']?.toString(),
-    totalAmount: (json['total_amount'] as num).toDouble(),
-    source: json['source']?.toString() ?? '',
-    shippingAmount: (json['shipping_amount'] as num).toDouble(),
-    paymentMethod: json['payment_method']?.toString() ?? '',
-    paymentTransactionId: json['payment_transaction_id']?.toString() ?? '',
-    orderNote: json['order_note']?.toString() ?? '',
-    orderStatus: json['order_status']?.toString() ?? '',
-    invoiceUrl: json['invoice_url']?.toString(),
-    name: json['name']?.toString() ?? '',
-    shippingAddress: json['shipping_address']?.toString() ?? '',
-    shippingState: json['shipping_state']?.toString() ?? '',
-    shippingPincode: json['shipping_pincode']?.toString() ?? '',
-    contactNumber: json['contact_number']?.toString() ?? '',
-    shipmentStatus: shipmentStatus,
-    customer: json['customers'] != null
-        ? Customer.fromJson(json['customers'])
-        : null,
-  );
-}
-
 
   Map<String, dynamic> toJson() {
     return {
@@ -102,13 +110,12 @@ class Order {
       'invoice_url': invoiceUrl,
       'shipment_status': shipmentStatus,
 
-      'name' : name,
-      'shipping_address' :shippingAddress,
-      'shipping_state' : shippingState,
-      'shipping_pincode' : shippingPincode,
-      'contact_number' : contactNumber,
+      'name': name,
+      'shipping_address': shippingAddress,
+      'shipping_state': shippingState,
+      'shipping_pincode': shippingPincode,
+      'contact_number': contactNumber,
       'customers': customer?.toJson(),
-
     };
   }
 }

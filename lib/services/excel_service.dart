@@ -2,9 +2,10 @@ import 'dart:typed_data';
 import 'package:excel/excel.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
-
+import '../models/queries_model.dart';
+import '../providers/order_provider.dart';
 import 'package:admin_dashboard_rajashree/models/order_model.dart';
-
+import 'package:provider/provider.dart';
 import 'package:admin_dashboard_rajashree/models/purchase_model.dart';
 
 import 'package:admin_dashboard_rajashree/models/products_model.dart';
@@ -13,7 +14,10 @@ import '../models/return_model.dart';
 
 class ExcelService {
   // ================= ORDERS EXPORT =================
-  static Future<bool> exportToExcel(List<Order> selectedOrders) async {
+  static Future<bool> exportToExcel(
+      List<Order> selectedOrders,
+      OrderProvider orderProvider,
+      ) async {
     try {
       var excel = Excel.createExcel();
       Sheet sheetObject = excel['Orders'];
@@ -30,12 +34,16 @@ class ExcelService {
         TextCellValue('Total Amount'),
         TextCellValue('Payment Method'),
         TextCellValue('Order Date'),
+        TextCellValue('Order Details'),
       ]);
 
       // Data rows
       for (var order in selectedOrders) {
         final customer = order.customer;
 
+        final items = await orderProvider.fetchOrderItems(
+          order.orderId.toString(),
+        );
         sheetObject.appendRow([
           TextCellValue(order.orderId.toString()),
           TextCellValue(customer?.fullName ?? ''),
@@ -47,6 +55,14 @@ class ExcelService {
           DoubleCellValue(order.totalAmount),
           TextCellValue(order.paymentMethod),
           TextCellValue(order.orderDate.toString()),
+          TextCellValue(
+            items
+                .map(
+                  (item) =>
+              "${item.productVariants?['sku']} (x${item.quantity})",
+            )
+                .join(", "),
+          ),
         ]);
       }
 
@@ -214,12 +230,14 @@ class ExcelService {
   }
 
   // ================= RETURNS EXPORT =================
-  static Future<bool> exportReturnsToExcel(List<ReturnModel> returnsList) async {
+  static Future<bool> exportReturnsToExcel(
+      List<ReturnModel> returnsList,
+      ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Returns'];
 
-// ✅ Header row
+      // ✅ Header row
       sheet.appendRow([
         TextCellValue('Order ID'),
         TextCellValue('Return Date'),
@@ -230,13 +248,15 @@ class ExcelService {
         TextCellValue('Created At'),
       ]);
 
-// ✅ Data rows
+      // ✅ Data rows
       for (final r in returnsList) {
         sheet.appendRow([
           TextCellValue(r.orderId ?? '-'),
-          TextCellValue(r.returnDate != null
-              ? r.returnDate!.toIso8601String().split('T')[0]
-              : '-'),
+          TextCellValue(
+            r.returnDate != null
+                ? r.returnDate!.toIso8601String().split('T')[0]
+                : '-',
+          ),
           TextCellValue(r.status),
           TextCellValue(r.reason ?? '-'),
           TextCellValue(r.returnedItems ?? '-'),
@@ -245,7 +265,7 @@ class ExcelService {
         ]);
       }
 
-// ✅ Save file
+      // ✅ Save file
       final fileBytes = excel.save();
       if (fileBytes != null) {
         final today = DateTime.now();
@@ -265,6 +285,53 @@ class ExcelService {
       return false;
     } catch (e) {
       debugPrint("❌ Error exporting Returns: $e");
+      return false;
+    }
+  }
+
+  static Future<bool> exportQueriesToExcel(List<QueryModel> queries) async {
+    try {
+      final excel = Excel.createExcel();
+      final sheet = excel['Queries'];
+
+      sheet.appendRow([
+        TextCellValue('ID'),
+        TextCellValue('Name'),
+        TextCellValue('Mobile'),
+        TextCellValue('Email'),
+        TextCellValue('Message'),
+        TextCellValue('Status'),
+        TextCellValue('Priority'),
+        TextCellValue('Order ID'),
+        TextCellValue('Remarks'),
+        TextCellValue('Created At'),
+      ]);
+
+      for (final q in queries) {
+        sheet.appendRow([
+          TextCellValue("${q.queryId}"),
+          TextCellValue(q.name),
+          TextCellValue(q.mobileNumber),
+          TextCellValue(q.email ?? '-'),
+          TextCellValue(q.message),
+          TextCellValue(q.status),
+          TextCellValue(q.priority ?? (q.orderId != null ? 'High' : 'Medium')),
+          TextCellValue(q.orderId ?? '-'),
+          TextCellValue(q.remarks ?? '-'),
+          TextCellValue(q.createdAt.toIso8601String()),
+        ]);
+      }
+
+      final bytes = excel.save();
+      if (bytes != null) {
+        await FileSaver.instance.saveFile( name:'queries_export.xlsx',bytes: Uint8List.fromList(bytes),mimeType: MimeType.microsoftExcel,
+        );
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint("❌ Error exporting Queries: $e");
       return false;
     }
   }
