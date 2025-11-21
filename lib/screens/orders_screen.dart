@@ -1,13 +1,29 @@
 // lib/screens/orders_screen.dart
+import 'dart:io' show File;
+import 'dart:convert';
+import 'dart:typed_data';
+
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html; // only ok if guarded inside kIsWeb
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+// KEEP ONLY SYNCFUSION
+import 'package:syncfusion_flutter_pdf/pdf.dart';
+
+// your other app files…
 import 'package:admin_dashboard_rajashree/models/order_model.dart';
 import 'package:admin_dashboard_rajashree/providers/order_provider.dart';
 import 'package:admin_dashboard_rajashree/screens/trackship_screen.dart';
 import 'package:admin_dashboard_rajashree/services/invoice_service.dart';
 import 'package:admin_dashboard_rajashree/services/excel_service.dart';
 import 'package:admin_dashboard_rajashree/services/dashboard_service.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -290,6 +306,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       selectedOrders,
       orderProvider,
     );
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -316,6 +333,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
     bool allSuccess = true;
 
+    // Store URLs of uploaded invoices
+    final List<String> invoiceUrls = [];
+
+    // =============== 1️⃣ GENERATE + UPLOAD INVOICES =================
     for (String orderId in _selectedOrderIds) {
       final jsonData = await orderProvider.fetchOrderJson(orderId);
       if (jsonData == null) {
@@ -328,20 +349,77 @@ class _OrdersScreenState extends State<OrdersScreen> {
           jsonData,
         );
 
-        // ✅ Prevents the type mismatch error
         if (invoiceData == null) {
           allSuccess = false;
           continue;
         }
 
-        final success = await orderProvider.uploadInvoiceToSupabaseStorage(
+        final uploadedUrl = await orderProvider.uploadInvoiceToSupabaseStorage(
           invoiceData,
         );
-        if (!success) allSuccess = false;
+
+        if (uploadedUrl == "") {
+          allSuccess = false;
+        } else {
+          invoiceUrls.add(uploadedUrl);
+        }
       }
     }
 
-    setState(() => _isGenerating = false);
+    // =============== 2️⃣ MERGE PDF (WEB vs MOBILE) =================
+    try {
+      // Build final merged PDF
+      final PdfDocument finalDoc = PdfDocument();
+
+      for (String url in invoiceUrls) {
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode != 200) continue;
+
+        final PdfDocument doc = PdfDocument(inputBytes: response.bodyBytes);
+
+        for (int i = 0; i < doc.pages.count; i++) {
+          final page = doc.pages[i];
+          final template = page.createTemplate();
+          final newPage = finalDoc.pages.add();
+          newPage.graphics.drawPdfTemplate(template, const Offset(0, 0));
+        }
+
+        doc.dispose();
+      }
+
+      final mergedBytes = await finalDoc.save();
+      finalDoc.dispose();
+
+      // ---------- WEB (DOWNLOAD) ----------
+      if (kIsWeb) {
+        final base64Pdf = base64Encode(mergedBytes);
+        final url = "data:application/pdf;base64,$base64Pdf";
+
+        // ignore: undefined_prefixed_name
+        html.AnchorElement(href: url)
+          ..setAttribute("download", "Combined_Invoices.pdf")
+          ..click();
+
+        print("Merged PDF downloaded (web)");
+      } else {
+        // ---------- MOBILE / DESKTOP ----------
+        final dir = await getTemporaryDirectory();
+        final outFile = File("${dir.path}/Combined_Invoices.pdf");
+
+        await outFile.writeAsBytes(mergedBytes, flush: true);
+        await OpenFilex.open(outFile.path);
+
+        print("Merged PDF saved at ${outFile.path}");
+      }
+    } catch (e) {
+      print("PDF merge error: $e");
+    }
+
+    // Cleanup
+    setState(() {
+      _isGenerating = false;
+      _selectedOrderIds.clear();
+    });
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -354,10 +432,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ),
       );
     }
-
-    setState(() {
-      _selectedOrderIds.clear();
-    });
   }
 
   Future<void> _showOrderDetails(BuildContext context, Order order) async {
@@ -751,7 +825,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 _showOrderDetails(context, order),
                           ),
                         ),
-                        DataCell(Text(order.customer?.fullName ?? "N/A")),
+                        DataCell(
+                          SizedBox(
+                            width: 150, // 👈 give a fixed width
+                            child: Text(
+                              order.customer?.fullName ?? "N/A",
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        ),
                         DataCell(
                           Text(order.customer?.mobileNumber ?? "N/A"),
                         ),

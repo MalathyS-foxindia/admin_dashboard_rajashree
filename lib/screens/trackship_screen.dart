@@ -74,127 +74,150 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage("images/bg.jpg"), // 🔥 add your background image here
+            image: AssetImage(
+              "images/bg.jpg",
+            ), // 🔥 add your background image here
             fit: BoxFit.cover,
           ),
         ),
-        child:Container(
+        child: Container(
           color: Colors.white.withOpacity(0.8),
-        child: shipmentProvider.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : shipmentProvider.shipments.isEmpty
-            ? const Center(child: Text("No shipments found."))
-            : LayoutBuilder(
-          builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth > 800;
-            final summary = _getSummary(shipmentProvider);
+          child: shipmentProvider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : shipmentProvider.shipments.isEmpty
+              ? const Center(child: Text("No shipments found."))
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isDesktop = constraints.maxWidth > 800;
+                    final summary = _getSummary(shipmentProvider);
 
-            return Column(
-              children: [
-                // 🔎 Search Bar
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search by Order ID or Tracking Number',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value.toLowerCase();
-                        _currentPage = 0;
-                      });
-                    },
-                  ),
-                ),
-
-                // 📊 Summary Cards + Export
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            _SummaryCard("Pending",
-                                summary['Pending'].toString(),
-                                Colors.orange, Icons.schedule),
-                            _SummaryCard("Shipped",
-                                summary['Shipped'].toString(),
-                                Colors.blue, Icons.local_shipping),
-                            _SummaryCard("Delivered",
-                                summary['Delivered'].toString(),
-                                Colors.green, Icons.check_circle),
-                          ],
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: _selectedRows.isEmpty
-                            ? null
-                            : () async {
-                          final selectedItems = _selectedRows
-                              .map((i) => shipmentProvider.shipments[i])
-                              .toList();
-                          await _exportToExcel(selectedItems);
-                        },
-                        icon: const Icon(Icons.download),
-                        label: const Text('Export Excel'),
-                      ),
-                      ElevatedButton.icon(
-                      onPressed: _selectedRows.isEmpty
-                          ? null
-                          : () async {
-                              final selectedItems = _selectedRows
-                                  .map((i) => shipmentProvider.shipments[i])
-                                  .toList();
-
-                              await shipmentProvider.sendShipmentStatus(selectedItems);
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Shipment status sent successfully"),
-                                  backgroundColor: Colors.green,  
-                                ),
-                              );
+                    return Column(
+                      children: [
+                        // 🔎 Search Bar
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search by Order ID or Tracking Number',
+                              prefixIcon: const Icon(Icons.search),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value.toLowerCase();
+                                _currentPage = 0;
+                              });
                             },
-                      icon: const Icon(Icons.send),
-                      label: const Text('Send Status'),
-                    )
-                    ],
-                  ),
-                ),
+                          ),
+                        ),
 
-                // 📋 Shipments List
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () =>
-                        shipmentProvider.refreshShipments(),
-                    child: isDesktop
-                        ? _buildDataTable(shipmentProvider)
-                        : _buildListView(shipmentProvider),
-                  ),
+                        // 📊 Summary Cards + Export
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: [
+                                    _SummaryCard(
+                                      "Yet to Ship",
+                                      summary['Yet to Ship'].toString(),
+                                      Colors.orange,
+                                      Icons.schedule,
+                                    ),
+                                    _SummaryCard(
+                                      "Shipped",
+                                      summary['Shipped'].toString(),
+                                      Colors.blue,
+                                      Icons.local_shipping,
+                                    ),
+                                    _SummaryCard(
+                                      "Delivered",
+                                      summary['Delivered'].toString(),
+                                      Colors.green,
+                                      Icons.check_circle,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: _selectedRows.isEmpty
+                                    ? null
+                                    : () async {
+                                        final selectedItems = _selectedRows
+                                            .map(
+                                              (i) =>
+                                                  shipmentProvider.shipments[i],
+                                            )
+                                            .toList();
+                                        await _exportToExcel(selectedItems);
+                                      },
+                                icon: const Icon(Icons.download),
+                                label: const Text('Export Excel'),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: _selectedRows.isEmpty
+                                    ? null
+                                    : () async {
+                                        final selectedItems = _selectedRows
+                                            .map(
+                                              (i) =>
+                                                  shipmentProvider.shipments[i],
+                                            )
+                                            .toList();
+
+                                        await shipmentProvider
+                                            .sendShipmentStatus(selectedItems);
+
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "Shipment status sent successfully",
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      },
+                                icon: const Icon(Icons.send),
+                                label: const Text('Send Status'),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // 📋 Shipments List
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: () =>
+                                shipmentProvider.refreshShipments(),
+                            child: isDesktop
+                                ? _buildDataTable(shipmentProvider)
+                                : _buildListView(shipmentProvider),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ],
-            );
-          },
         ),
-      ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const AddShipmentScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const AddShipmentScreen()),
           );
-          Provider.of<ShipmentProvider>(context, listen: false).fetchShipments();
+          Provider.of<ShipmentProvider>(
+            context,
+            listen: false,
+          ).fetchShipments();
         },
         child: const Icon(Icons.add),
       ),
@@ -204,13 +227,13 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
   /// 📊 Shipment summary
   Map<String, int> _getSummary(ShipmentProvider provider) {
     final Map<String, int> summary = {
-      "Pending": 0,
+      "Yet to Ship": 0,
       "Shipped": 0,
-      "Delivered": 0
+      "Delivered": 0,
     };
     for (var s in provider.shipments) {
-      summary[s.shippingStatus ?? "Pending"] =
-          (summary[s.shippingStatus ?? "Pending"] ?? 0) + 1;
+      summary[s.shippingStatus ?? "Yet to Ship"] =
+          (summary[s.shippingStatus ?? "Yet to Ship"] ?? 0) + 1;
     }
     return summary;
   }
@@ -274,11 +297,14 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                             ),
                             if (isEditing)
                               IconButton(
-                                icon: const Icon(Icons.qr_code_scanner,
-                                    color: Colors.blue),
+                                icon: const Icon(
+                                  Icons.qr_code_scanner,
+                                  color: Colors.blue,
+                                ),
                                 onPressed: () async {
-                                  final scanned =
-                                      await _scanBarcodeTest(context);
+                                  final scanned = await _scanBarcodeTest(
+                                    context,
+                                  );
                                   if (scanned != null && scanned.isNotEmpty) {
                                     controller.text = scanned;
                                   }
@@ -286,13 +312,16 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                               ),
                             if (isEditing)
                               IconButton(
-                                icon: const Icon(Icons.save,
-                                    color: Colors.green),
+                                icon: const Icon(
+                                  Icons.save,
+                                  color: Colors.green,
+                                ),
                                 onPressed: () async {
                                   try {
                                     final detected =
                                         _detectProviderFromTracking(
-                                            controller.text);
+                                          controller.text,
+                                        );
 
                                     await provider.updateTrackingNumber(
                                       s.orderId.toString(),
@@ -305,8 +334,9 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
 
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content:
-                                            Text("Tracking number updated"),
+                                        content: Text(
+                                          "Tracking number updated",
+                                        ),
                                         backgroundColor: Colors.green,
                                       ),
                                     );
@@ -314,8 +344,7 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                                   } catch (e) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content:
-                                            Text("Failed to update: $e"),
+                                        content: Text("Failed to update: $e"),
                                         backgroundColor: Colors.red,
                                       ),
                                     );
@@ -324,8 +353,10 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                               ),
                             if (isEditing)
                               IconButton(
-                                icon: const Icon(Icons.cancel,
-                                    color: Colors.red),
+                                icon: const Icon(
+                                  Icons.cancel,
+                                  color: Colors.red,
+                                ),
                                 onPressed: () {
                                   controller.text = s.trackingNumber ?? "";
                                   setState(() => isEditing = false);
@@ -348,8 +379,10 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                             onTap: () async {
                               final url = Uri.parse(s.trackingUrl!);
                               if (await canLaunchUrl(url)) {
-                                await launchUrl(url,
-                                    mode: LaunchMode.externalApplication);
+                                await launchUrl(
+                                  url,
+                                  mode: LaunchMode.externalApplication,
+                                );
                               }
                             },
                             child: const Text(
@@ -400,7 +433,8 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                     : null,
               ),
               Text(
-                  'Page ${_currentPage + 1} of ${(filtered.length / _rowsPerPage).ceil()}'),
+                'Page ${_currentPage + 1} of ${(filtered.length / _rowsPerPage).ceil()}',
+              ),
               IconButton(
                 icon: const Icon(Icons.chevron_right),
                 onPressed: end < filtered.length
@@ -447,8 +481,10 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                         onTap: () async {
                           final url = Uri.parse(s.trackingUrl!);
                           if (await canLaunchUrl(url)) {
-                            await launchUrl(url,
-                                mode: LaunchMode.externalApplication);
+                            await launchUrl(
+                              url,
+                              mode: LaunchMode.externalApplication,
+                            );
                           }
                         },
                         child: const Text(
@@ -466,8 +502,10 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                   children: [
                     if (isEditing)
                       IconButton(
-                        icon: const Icon(Icons.qr_code_scanner,
-                            color: Colors.blue),
+                        icon: const Icon(
+                          Icons.qr_code_scanner,
+                          color: Colors.blue,
+                        ),
                         onPressed: () async {
                           final scanned = await _scanBarcodeTest(context);
                           if (scanned != null && scanned.isNotEmpty) {
@@ -480,15 +518,14 @@ class _TrackShipScreenState extends State<TrackShipScreen> {
                         icon: const Icon(Icons.save, color: Colors.green),
                         onPressed: () async {
                           try {
-                            final detected =
-                                _detectProviderFromTracking(controller.text);
+                            final detected = _detectProviderFromTracking(
+                              controller.text,
+                            );
 
                             await provider.updateTrackingNumber(
                               s.shipmentId.toString(),
                               controller.text,
-                              detected["provider"] ??
-                                  s.shippingProvider ??
-                                  "",
+                              detected["provider"] ?? s.shippingProvider ?? "",
                               true,
                             );
 
@@ -560,19 +597,25 @@ class _SummaryCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(value,
-                    style: TextStyle(
-                        color: color,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold)),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
-            )
+            ),
           ],
         ),
       ),

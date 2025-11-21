@@ -15,9 +15,9 @@ import '../models/return_model.dart';
 class ExcelService {
   // ================= ORDERS EXPORT =================
   static Future<bool> exportToExcel(
-      List<Order> selectedOrders,
-      OrderProvider orderProvider,
-      ) async {
+    List<Order> selectedOrders,
+    OrderProvider orderProvider,
+  ) async {
     try {
       var excel = Excel.createExcel();
       Sheet sheetObject = excel['Orders'];
@@ -59,8 +59,8 @@ class ExcelService {
             items
                 .map(
                   (item) =>
-              "${item.productVariants?['sku']} (x${item.quantity})",
-            )
+                      "${item.productVariants?['sku']} (x${item.quantity})",
+                )
                 .join(", "),
           ),
         ]);
@@ -84,9 +84,9 @@ class ExcelService {
 
   // ================= SKU SUMMARY EXPORT =================
   static Future<bool> exportSkuSummaryToExcel(
-      List<Map<String, dynamic>> skuSummary,
-      DateTime date,
-      ) async {
+    List<Map<String, dynamic>> skuSummary,
+    DateTime date,
+  ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['SKU Summary'];
@@ -231,8 +231,8 @@ class ExcelService {
 
   // ================= RETURNS EXPORT =================
   static Future<bool> exportReturnsToExcel(
-      List<ReturnModel> returnsList,
-      ) async {
+    List<ReturnModel> returnsList,
+  ) async {
     try {
       final excel = Excel.createExcel();
       final sheet = excel['Returns'];
