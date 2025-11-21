@@ -2,6 +2,7 @@ import 'package:admin_dashboard_rajashree/screens/customer_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/orders_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/products_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/purchase_screen.dart';
+//import 'package:admin_dashboard_rajashree/screens/queries_screen_claude.dart' hide QueriesScreen;
 import 'package:admin_dashboard_rajashree/screens/queries_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/returns_screen.dart';
 import 'package:admin_dashboard_rajashree/screens/trackship_screen.dart';
@@ -268,7 +269,9 @@ Future<void> _saveMenu(DashboardMenu menu) async {
     case DashboardMenu.customers:
     return isAdmin ? const CustomersScreen() : _noAccess();
     case DashboardMenu.queries:
-    return (isAdmin || isManager) ? const QueriesScreen() : _noAccess();
+      return (isAdmin || isManager)
+          ? QueriesScreen(role: widget.role)
+          : _noAccess();
     case DashboardMenu.returns:
     return (isAdmin || isManager) ? const ReturnsScreen() : _noAccess();
     case DashboardMenu.banners:

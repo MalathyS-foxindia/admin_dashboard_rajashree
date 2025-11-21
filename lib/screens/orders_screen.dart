@@ -57,7 +57,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void initState() {
     super.initState();
     Future.microtask(
-      () => Provider.of<OrderProvider>(context, listen: false).fetchOrders(),
+          () => Provider.of<OrderProvider>(context, listen: false).fetchOrders(),
     );
     _loadSkuSummary();
   }
@@ -121,23 +121,23 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           onPressed: _skuSummary.isEmpty
                               ? null
                               : () async {
-                                  final success =
-                                      await ExcelService.exportSkuSummaryToExcel(
-                                        _skuSummary,
-                                        _selectedDate,
-                                      );
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          success
-                                              ? 'SKU Summary exported!'
-                                              : 'Failed to export.',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
+                            final success =
+                            await ExcelService.exportSkuSummaryToExcel(
+                              _skuSummary,
+                              _selectedDate,
+                            );
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    success
+                                        ? 'SKU Summary exported!'
+                                        : 'Failed to export.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                           icon: const Icon(Icons.file_download),
                           label: const Text("Export Excel"),
                         ),
@@ -148,69 +148,69 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       height: 400,
                       child: _skuSummary.isEmpty
                           ? const Center(
-                              child: Text("No sales summary available"),
-                            )
+                        child: Text("No sales summary available"),
+                      )
                           : SingleChildScrollView(
-                              scrollDirection: Axis.vertical,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: DataTable(
-                                  headingRowColor:
-                                      WidgetStateProperty.resolveWith(
-                                        (states) => Colors.grey[200],
-                                      ),
-                                  columns: const [
-                                    DataColumn(label: Text("SKU")),
-                                    DataColumn(label: Text("Variant")),
-                                    DataColumn(label: Text("Qty Sold")),
-                                    DataColumn(label: Text("Current Stock")),
-                                  ],
-                                  rows: _skuSummary.map((sku) {
-                                    final currentStock =
-                                        int.tryParse(
-                                          sku['current_stock']?.toString() ??
-                                              '0',
-                                        ) ??
-                                        0;
-                                    final totalQty =
-                                        int.tryParse(
-                                          sku['total_qty']?.toString() ?? '0',
-                                        ) ??
-                                        0;
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          Text(
-                                            (sku['sku'] ?? 'N/A').toString(),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            (sku['variant_name'] ?? 'N/A')
-                                                .toString(),
-                                          ),
-                                        ),
-                                        DataCell(Text(totalQty.toString())),
-                                        DataCell(
-                                          Text(
-                                            currentStock.toString(),
-                                            style: TextStyle(
-                                              color: currentStock < totalQty
-                                                  ? Colors.red
-                                                  : Colors.black,
-                                              fontWeight:
-                                                  currentStock < totalQty
-                                                  ? FontWeight.bold
-                                                  : FontWeight.normal,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
+                        scrollDirection: Axis.vertical,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            headingRowColor:
+                            WidgetStateProperty.resolveWith(
+                                  (states) => Colors.grey[200],
                             ),
+                            columns: const [
+                              DataColumn(label: Text("SKU")),
+                              DataColumn(label: Text("Variant")),
+                              DataColumn(label: Text("Qty Sold")),
+                              DataColumn(label: Text("Current Stock")),
+                            ],
+                            rows: _skuSummary.map((sku) {
+                              final currentStock =
+                                  int.tryParse(
+                                    sku['current_stock']?.toString() ??
+                                        '0',
+                                  ) ??
+                                      0;
+                              final totalQty =
+                                  int.tryParse(
+                                    sku['total_qty']?.toString() ?? '0',
+                                  ) ??
+                                      0;
+                              return DataRow(
+                                cells: [
+                                  DataCell(
+                                    Text(
+                                      (sku['sku'] ?? 'N/A').toString(),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      (sku['variant_name'] ?? 'N/A')
+                                          .toString(),
+                                    ),
+                                  ),
+                                  DataCell(Text(totalQty.toString())),
+                                  DataCell(
+                                    Text(
+                                      currentStock.toString(),
+                                      style: TextStyle(
+                                        color: currentStock < totalQty
+                                            ? Colors.red
+                                            : Colors.black,
+                                        fontWeight:
+                                        currentStock < totalQty
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -571,9 +571,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
         title: Text(_showShipmentPage ? 'Shipment Tracking' : 'Orders'),
         leading: _showShipmentPage
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _showShipmentPage = false),
-              )
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => setState(() => _showShipmentPage = false),
+        )
             : null,
       ),
       body: _showShipmentPage
@@ -581,32 +581,76 @@ class _OrdersScreenState extends State<OrdersScreen> {
           : orderProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
+        children: [
+          /// 🔹 Top controls row
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: _showSkuSummaryDialog,
+            icon: const Icon(Icons.inventory),
+            label: const Text("SKU Summary"),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                /// 🔹 Top controls row
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: _showSkuSummaryDialog,
-                  icon: const Icon(Icons.inventory),
-                  label: const Text("SKU Summary"),
+                SizedBox(
+                  width: 300,
+                  child: TextField(
+                    onChanged: filterOrders,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Search by mobile, source, order id',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Wrap(
-                    spacing: 16,
-                    runSpacing: 12,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 300,
-                        child: TextField(
-                          onChanged: filterOrders,
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.search),
-                            hintText: 'Search by mobile, source, order id',
-                            border: OutlineInputBorder(),
+
+                // ---------------- NEW MULTI-SELECT FILTER UI ----------------
+
+                // ================= MULTI SELECT STATUS ===================
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Status",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        ..._selectedStatuses.map(
+                              (s) => Chip(
+                            label: Text(s),
+                            onDeleted: () {
+                              setState(() {
+                                _selectedStatuses.remove(s);
+                                _page = 0;
+                              });
+                            },
                           ),
                         ),
-                      ),
+                        ActionChip(
+                          label: const Text("Select"),
+                          avatar: const Icon(Icons.filter_alt),
+                          onPressed: () async {
+                            final result = await _showMultiSelect(
+                              _filterOptions["Status"]!,
+                              _selectedStatuses,
+                              "Select Status",
+                            );
+                            setState(() {
+                              _selectedStatuses = result;
+                              _page = 0;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
 
                       // ---------------- NEW MULTI-SELECT FILTER UI ----------------
 
@@ -651,6 +695,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           ),
                         ],
                       ),
+                  ],
+                ),
 
                       // ================= MULTI SELECT SOURCE ===================
                       Column(
@@ -770,6 +816,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     ],
                   ),
                 ),
+              ],
+            ),
+          ),
 
                 /// Orders Table
                 Expanded(
@@ -881,53 +930,57 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                       )
                                     : const Text("Not Paid"),
                               ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
+                            ),
+                          )
+                              : const Text("Not Paid"),
+                        ),
+                      ],
+                    );
+                  }).toList(),
                 ),
+              ),
+            ),
+          ),
 
-                /// 🔹 Pagination controls + Rows per page
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        onPressed: _page > 0
-                            ? () => setState(() => _page--)
-                            : null,
-                        icon: const Icon(Icons.chevron_left),
-                      ),
-                      Text('Page ${_page + 1} / $totalPages'),
-                      IconButton(
-                        onPressed: (_page + 1) < totalPages
-                            ? () => setState(() => _page++)
-                            : null,
-                        icon: const Icon(Icons.chevron_right),
-                      ),
-                      const SizedBox(width: 20),
-                      const Text("Rows per page: "),
-                      DropdownButton<int>(
-                        value: _pageSize,
-                        items: _pageSizeOptions
-                            .map(
-                              (s) =>
-                                  DropdownMenuItem(value: s, child: Text('$s')),
-                            )
-                            .toList(),
-                        onChanged: (v) => setState(() {
-                          _pageSize = v!;
-                          _page = 0;
-                        }),
-                      ),
-                    ],
-                  ),
+          /// 🔹 Pagination controls + Rows per page
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: _page > 0
+                      ? () => setState(() => _page--)
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Text('Page ${_page + 1} / $totalPages'),
+                IconButton(
+                  onPressed: (_page + 1) < totalPages
+                      ? () => setState(() => _page++)
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                ),
+                const SizedBox(width: 20),
+                const Text("Rows per page: "),
+                DropdownButton<int>(
+                  value: _pageSize,
+                  items: _pageSizeOptions
+                      .map(
+                        (s) =>
+                        DropdownMenuItem(value: s, child: Text('$s')),
+                  )
+                      .toList(),
+                  onChanged: (v) => setState(() {
+                    _pageSize = v!;
+                    _page = 0;
+                  }),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
     );
   }
 }

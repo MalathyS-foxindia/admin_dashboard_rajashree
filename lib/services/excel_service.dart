@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:excel/excel.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
+import '../models/queries_model.dart';
 import '../providers/order_provider.dart';
 import 'package:admin_dashboard_rajashree/models/order_model.dart';
 import 'package:provider/provider.dart';
@@ -284,6 +285,53 @@ class ExcelService {
       return false;
     } catch (e) {
       debugPrint("❌ Error exporting Returns: $e");
+      return false;
+    }
+  }
+
+  static Future<bool> exportQueriesToExcel(List<QueryModel> queries) async {
+    try {
+      final excel = Excel.createExcel();
+      final sheet = excel['Queries'];
+
+      sheet.appendRow([
+        TextCellValue('ID'),
+        TextCellValue('Name'),
+        TextCellValue('Mobile'),
+        TextCellValue('Email'),
+        TextCellValue('Message'),
+        TextCellValue('Status'),
+        TextCellValue('Priority'),
+        TextCellValue('Order ID'),
+        TextCellValue('Remarks'),
+        TextCellValue('Created At'),
+      ]);
+
+      for (final q in queries) {
+        sheet.appendRow([
+          TextCellValue("${q.queryId}"),
+          TextCellValue(q.name),
+          TextCellValue(q.mobileNumber),
+          TextCellValue(q.email ?? '-'),
+          TextCellValue(q.message),
+          TextCellValue(q.status),
+          TextCellValue(q.priority ?? (q.orderId != null ? 'High' : 'Medium')),
+          TextCellValue(q.orderId ?? '-'),
+          TextCellValue(q.remarks ?? '-'),
+          TextCellValue(q.createdAt.toIso8601String()),
+        ]);
+      }
+
+      final bytes = excel.save();
+      if (bytes != null) {
+        await FileSaver.instance.saveFile( name:'queries_export.xlsx',bytes: Uint8List.fromList(bytes),mimeType: MimeType.microsoftExcel,
+        );
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint("❌ Error exporting Queries: $e");
       return false;
     }
   }
