@@ -61,9 +61,8 @@ dependencies:
   google_fonts: ^5.0.0
   cached_network_image: ^3.2.3
   flutter_riverpod: ^2.3.5 # For AsyncValue
-  #open_file: ^3.5.10
-  open_filex: ^4.4.0
-
+  open_file: ^3.5.1
+  barcode_widget: ^2.0.1
 
 dev_dependencies:
   flutter_test:
