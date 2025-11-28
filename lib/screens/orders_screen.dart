@@ -7,6 +7,7 @@ import 'package:admin_dashboard_rajashree/screens/trackship_screen.dart';
 import 'package:admin_dashboard_rajashree/services/invoice_service.dart';
 import 'package:admin_dashboard_rajashree/services/excel_service.dart';
 import 'package:admin_dashboard_rajashree/services/dashboard_service.dart';
+import 'package:admin_dashboard_rajashree/widgets/invoice_widget.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -338,8 +339,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
       }
 
       if (jsonData['order_status'] != 'failed') {
+        // Build the Invoice widget wrapped in RepaintBoundary (must use same invoiceKey)
+        final Widget invoiceWidget = InvoiceWidget(data: jsonData);
+        final GlobalKey _invoiceKey = GlobalKey();
         final invoiceData = await InvoiceService.generateInvoiceFromJson(
-          jsonData,
+          context: context,
+          jsonData: jsonData,
+          invoiceKey: _invoiceKey,
+          invoiceWidget: invoiceWidget,
         );
 
         if (invoiceData == null) {
