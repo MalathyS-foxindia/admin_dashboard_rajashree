@@ -31,7 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   pdf: ^3.10.4
-  syncfusion_flutter_pdf: ^31.2.12
+  syncfusion_flutter_pdf: ^31.1.19
   path_provider: ^2.1.4
   googleapis: ^14.0.0
   googleapis_auth: ^2.0.0
@@ -81,10 +81,10 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
-      - assets/images/
-      - assets/fonts/Roboto-Regular.ttf
-      - assets/fonts/NotoSansTamil-Regular.ttf
-      - assets/fonts/Latha.ttf
+    - assets/images/
+    - assets/fonts/Roboto-Regular.ttf
+    - assets/fonts/NotoSansTamil-Regular.ttf
+    - assets/fonts/Latha.ttf
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
