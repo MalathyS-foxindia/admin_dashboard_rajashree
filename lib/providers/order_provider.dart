@@ -33,7 +33,7 @@ class OrderProvider with ChangeNotifier {
       message: "Fetching orders with search=$search filter=$filter",
     );
 
-    final queryParams = <String, String>{'limit': '1000'};
+    final queryParams = <String, String>{'limit': '3000'};
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
     if (filter != null && filter.isNotEmpty) queryParams['filter'] = filter;
 
