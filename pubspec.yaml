@@ -63,6 +63,8 @@ dependencies:
   flutter_riverpod: ^2.3.5 # For AsyncValue
   open_file: ^3.5.1
   barcode_widget: ^2.0.1
+  open_filex: ^4.7.0
+
 
 dev_dependencies:
   flutter_test:
