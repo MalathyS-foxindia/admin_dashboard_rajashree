@@ -93,145 +93,190 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void _showSkuSummaryDialog() {
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text("📦 Daily SKU Sales Summary"),
-              content: SizedBox(
-                width: 700,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        TextButton.icon(
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: _selectedDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime.now(),
-                            );
-                            if (picked != null) {
-                              setState(() => _selectedDate = picked);
-                              await _loadSkuSummary();
-                              // refresh dialog UI
-                              setDialogState(() {});
-                            }
-                          },
-                          icon: const Icon(Icons.calendar_today),
-                          label: Text(
-                            "${_selectedDate.toLocal()}".split(' ')[0],
-                          ),
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            height: MediaQuery.of(context).size.height * 0.85,
+            child: Column(
+              children: [
+                // ================= HEADER =================
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Text(
+                        "📦 Daily SKU Sales Summary",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const Spacer(),
-                        ElevatedButton.icon(
-                          onPressed: _skuSummary.isEmpty
-                              ? null
-                              : () async {
-                                  final success =
-                                      await ExcelService.exportSkuSummaryToExcel(
-                                        _skuSummary,
-                                        _selectedDate,
-                                      );
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          success
-                                              ? 'SKU Summary exported!'
-                                              : 'Failed to export.',
-                                        ),
-                                      ),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) {
+                            setState(() => _selectedDate = picked);
+                            await _loadSkuSummary();
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text("${_selectedDate.toLocal()}".split(' ')[0]),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: _skuSummary.isEmpty
+                            ? null
+                            : () async {
+                                final success =
+                                    await ExcelService.exportSkuSummaryToExcel(
+                                      _skuSummary,
+                                      _selectedDate,
                                     );
-                                  }
-                                },
-                          icon: const Icon(Icons.file_download),
-                          label: const Text("Export Excel"),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 400,
-                      child: _skuSummary.isEmpty
-                          ? const Center(
-                              child: Text("No sales summary available"),
-                            )
-                          : SingleChildScrollView(
-                              scrollDirection: Axis.vertical,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: DataTable(
-                                  headingRowColor:
-                                      WidgetStateProperty.resolveWith(
-                                        (states) => Colors.grey[200],
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        success
+                                            ? 'SKU Summary exported!'
+                                            : 'Failed to export.',
                                       ),
-                                  columns: const [
-                                    DataColumn(label: Text("SKU")),
-                                    DataColumn(label: Text("Variant")),
-                                    DataColumn(label: Text("Qty Sold")),
-                                    DataColumn(label: Text("Current Stock")),
-                                  ],
-                                  rows: _skuSummary.map((sku) {
-                                    final currentStock =
-                                        int.tryParse(
-                                          sku['current_stock']?.toString() ??
-                                              '0',
-                                        ) ??
-                                        0;
-                                    final totalQty =
-                                        int.tryParse(
-                                          sku['total_qty']?.toString() ?? '0',
-                                        ) ??
-                                        0;
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          Text(
-                                            (sku['sku'] ?? 'N/A').toString(),
-                                          ),
+                                    ),
+                                  );
+                                }
+                              },
+                        icon: const Icon(Icons.file_download),
+                        label: const Text("Export Excel"),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // ================= TABLE =================
+                Expanded(
+                  child: _skuSummary.isEmpty
+                      ? const Center(child: Text("No sales summary available"))
+                      : Scrollbar(
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: SizedBox(
+                              width: 1100, // 🔥 forces horizontal scroll
+                              child: ListView(
+                                children: [
+                                  DataTable(
+                                    columnSpacing: 32,
+                                    headingRowColor:
+                                        WidgetStateProperty.resolveWith(
+                                          (states) => Colors.grey[200],
                                         ),
-                                        DataCell(
-                                          Text(
-                                            (sku['variant_name'] ?? 'N/A')
-                                                .toString(),
-                                          ),
-                                        ),
-                                        DataCell(Text(totalQty.toString())),
-                                        DataCell(
-                                          Text(
-                                            currentStock.toString(),
-                                            style: TextStyle(
-                                              color: currentStock < totalQty
-                                                  ? Colors.red
-                                                  : Colors.black,
-                                              fontWeight:
-                                                  currentStock < totalQty
-                                                  ? FontWeight.bold
-                                                  : FontWeight.normal,
+                                    columns: const [
+                                      DataColumn(label: Text("SKU")),
+                                      DataColumn(label: Text("Variant")),
+                                      DataColumn(
+                                        numeric: true,
+                                        label: Text("Qty Sold"),
+                                      ),
+                                      DataColumn(
+                                        numeric: true,
+                                        label: Text("Current Stock"),
+                                      ),
+                                      DataColumn(
+                                        numeric: true,
+                                        label: Text("Sale Price"),
+                                      ),
+                                    ],
+                                    rows: _skuSummary.map((sku) {
+                                      final totalQty =
+                                          int.tryParse(
+                                            sku['total_qty']?.toString() ?? '0',
+                                          ) ??
+                                          0;
+                                      final currentStock =
+                                          int.tryParse(
+                                            sku['current_stock']?.toString() ??
+                                                '0',
+                                          ) ??
+                                          0;
+                                      final salePrice =
+                                          double.tryParse(
+                                            sku['saleprice']?.toString() ?? '0',
+                                          ) ??
+                                          0.0;
+
+                                      return DataRow(
+                                        cells: [
+                                          DataCell(
+                                            Text(
+                                              sku['sku'] ?? 'N/A',
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
+                                          DataCell(
+                                            Text(
+                                              sku['variant_name'] ?? 'N/A',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          DataCell(
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child: Text(totalQty.toString()),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child: Text(
+                                                currentStock.toString(),
+                                                style: TextStyle(
+                                                  color: currentStock < totalQty
+                                                      ? Colors.red
+                                                      : Colors.black,
+                                                  fontWeight:
+                                                      currentStock < totalQty
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child: Text(
+                                                "₹${salePrice.toStringAsFixed(2)}",
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
                               ),
                             ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Close"),
+                          ),
+                        ),
                 ),
               ],
-            );
-          },
+            ),
+          ),
         );
       },
     );

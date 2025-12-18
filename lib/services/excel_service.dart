@@ -98,6 +98,7 @@ class ExcelService {
         TextCellValue('Qty Sold'),
         TextCellValue('Current Stock'),
         TextCellValue('Date'),
+        TextCellValue('Sale Price'),
       ]);
 
       for (final sku in skuSummary) {
@@ -107,6 +108,7 @@ class ExcelService {
           TextCellValue(sku['total_qty']?.toString() ?? '0'),
           TextCellValue(sku['current_stock']?.toString() ?? 'N/A'),
           TextCellValue(date.toIso8601String().split('T')[0]),
+          TextCellValue(sku['saleprice']?.toString() ?? '0'),
         ]);
       }
 
@@ -324,7 +326,10 @@ class ExcelService {
 
       final bytes = excel.save();
       if (bytes != null) {
-        await FileSaver.instance.saveFile( name:'queries_export.xlsx',bytes: Uint8List.fromList(bytes),mimeType: MimeType.microsoftExcel,
+        await FileSaver.instance.saveFile(
+          name: 'queries_export.xlsx',
+          bytes: Uint8List.fromList(bytes),
+          mimeType: MimeType.microsoftExcel,
         );
         return true;
       }

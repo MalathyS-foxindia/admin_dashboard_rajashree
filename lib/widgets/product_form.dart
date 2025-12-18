@@ -277,6 +277,7 @@ class _ProductFormState extends State<ProductForm> {
       hasVariant: _hasVariant,
       variants: variantsToSend,
       imageUrl: _imageUrl,
+      isActive: _activeNotifier.value,
     );
 
     bool ok = widget.initial == null
